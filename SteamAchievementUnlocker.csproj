@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <Version>1.1.0</Version>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Steamworks.NET" Version="20.2.0" />
+    <Compile Remove="tests\**\*.cs" />
+    <None Include="lib\steam_api64.dll" Link="steam_api64.dll" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <None Include="README.md;GITHUB-PUBLISHING.md;LICENSE;THIRD-PARTY-NOTICES.md;lib\Steamworks.NET.LICENSE.txt;lib\DOTNET-LICENSE.txt;lib\DOTNET-THIRD-PARTY-NOTICES.txt" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="RequireSteamDll" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('lib\steam_api64.dll')" Text="Missing lib/steam_api64.dll. Use the Windows-x64 DLL from Steamworks.NET Standalone 20.2.0 (SDK 1.57)." />
+  </Target>
+</Project>

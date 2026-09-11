@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "Steamworks.NET": {
+        "type": "Direct",
+        "requested": "[20.2.0, )",
+        "resolved": "20.2.0",
+        "contentHash": "qv7NM0fZ2HPnYqTGGJ3Pt3g4R7KS780ysVB33HT66NAgbCuD2pjaSuZBU5pERBwphLgSXcXz8xZR2CSImWTQRw=="
+      }
+    },
+    "net8.0-windows7.0/win-x64": {
+      "Steamworks.NET": {
+        "type": "Direct",
+        "requested": "[20.2.0, )",
+        "resolved": "20.2.0",
+        "contentHash": "qv7NM0fZ2HPnYqTGGJ3Pt3g4R7KS780ysVB33HT66NAgbCuD2pjaSuZBU5pERBwphLgSXcXz8xZR2CSImWTQRw=="
+      }
+    }
+  }
+}
