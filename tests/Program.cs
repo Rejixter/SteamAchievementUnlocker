@@ -27,6 +27,41 @@ string scratch = Path.Combine(Path.GetTempPath(), "sau-tests-" + Guid.NewGuid().
 Directory.CreateDirectory(scratch);
 try
 {
+    string fakeSteam = Path.Combine(scratch, "steam");
+    string sharedCache = Path.Combine(fakeSteam, "appcache", "librarycache");
+    Directory.CreateDirectory(Path.Combine(sharedCache, "620"));
+    File.WriteAllText(Path.Combine(sharedCache, "620_header.jpg"), "");
+    File.WriteAllText(Path.Combine(sharedCache, "10_library_600x900.jpg"), "");
+    File.WriteAllText(Path.Combine(sharedCache, "0_header.jpg"), "");
+    File.WriteAllText(Path.Combine(sharedCache, "bad_header.jpg"), "");
+    Directory.CreateDirectory(Path.Combine(fakeSteam, "config"));
+    File.WriteAllText(Path.Combine(fakeSteam, "config", "loginusers.vdf"), "\"76561197960265729\" { \"MostRecent\" \"1\" }");
+    string userCache = Path.Combine(fakeSteam, "userdata", "1", "config", "librarycache");
+    Directory.CreateDirectory(userCache);
+    File.WriteAllText(Path.Combine(userCache, "999.json"), "{}");
+    File.WriteAllText(Path.Combine(userCache, "achievement_progress.json"), "{}");
+    var candidates = SteamLibraryScanner.GetCachedLibraryGames(fakeSteam);
+    Check(candidates.Select(g => g.AppId).SequenceEqual(new uint[] { 10, 620, 999 }), "Family candidates merge old/new cache layouts and current user cache without duplicates");
+    Check(candidates.All(g => g.FromCache && !g.IsInstalled), "Cache candidates never claim installation or ownership");
+    Check(SteamLibraryScanner.GetCachedLibraryGames(Path.Combine(scratch, "missing")).Count == 0, "Missing Steam cache is handled");
+    var attempted = new List<uint>();
+    var reported = new List<BatchResult>();
+    var batch = await BatchRunner.RunAsync(candidates.Concat(candidates), game =>
+    {
+        attempted.Add(game.AppId);
+        if (game.AppId == 10) throw new IOException("test process failure");
+        return Task.FromResult(game.AppId == 620 ? 6 : 0);
+    }, () => false, reported.Add);
+    Check(attempted.SequenceEqual(new uint[] { 10, 620, 999 }) && reported.SequenceEqual(batch), "Batch is sequential, deduplicated, and continues after a worker exception");
+    Check(batch[0].Status.Contains("unknown") && batch[1].Status.Contains("unconfirmed") && batch[2].Status == "Confirmed", "Failed/unconfirmed saves are never reported as success");
+    int calls = 0;
+    var stopped = await BatchRunner.RunAsync(candidates, _ => { calls++; return Task.FromResult(2); }, () => calls == 1, _ => { });
+    Check(stopped.Count == 1 && calls == 1, "Stop prevents remaining games from starting");
+    var neverStarted = await BatchRunner.RunAsync(candidates, _ => throw new Exception("Must not run"), () => true, _ => { });
+    Check(neverStarted.Count == 0, "Cancellation before the first game changes nothing");
+    var start = BatchRunner.CreateStartInfo(620, "Game name \"with quotes\" & spaces", true);
+    Check(!start.UseShellExecute && start.ArgumentList.TakeLast(3).SequenceEqual(new[] { "--bulk-worker", "620", "Game name \"with quotes\" & spaces" }), "Worker names are literal arguments, not shell code");
+
     var games = new List<SteamGame> { new(10, "No achievements", true), new(620, "Achievements", false), new(999, "Unknown", true) };
     int requests = 0;
     using var client = new HttpClient(new FakeHandler(request =>
@@ -37,6 +72,13 @@ try
             url.Contains("appids=620&") ? new(HttpStatusCode.OK) { Content = new StringContent("{\"620\":{\"success\":true,\"data\":{\"achievements\":{\"total\":51}}}}") } :
             new(HttpStatusCode.InternalServerError);
     }));
+    using var namedClient = new HttpClient(new FakeHandler(_ => new(HttpStatusCode.OK) { Content = new StringContent(App("{\"name\":\"Cached family game\",\"achievements\":{\"total\":1}}")) }));
+    var namedCatalog = new AchievementCatalog(namedClient, Path.Combine(scratch, "names.json"), TimeSpan.Zero);
+    await namedCatalog.RefreshAsync(new[] { new SteamGame(10, "AppID 10", false, true) }, null, CancellationToken.None);
+    Check(namedCatalog.GetName(10) == "Cached family game", "Store names resolve cached AppIDs");
+    namedCatalog.RecordFromClient(10, true);
+    var namedReload = new AchievementCatalog(namedClient, Path.Combine(scratch, "names.json"));
+    Check(namedReload.GetName(10) == "Cached family game", "Client achievement updates preserve cached names");
     string cache = Path.Combine(scratch, "cache.json");
     var catalog = new AchievementCatalog(client, cache, TimeSpan.Zero);
     await catalog.RefreshAsync(games, null, CancellationToken.None);
