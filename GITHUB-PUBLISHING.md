@@ -22,7 +22,7 @@ dosyayı `.gitignore` geçmişten silmez; bu yüzden temiz klasörden yeni depo 
 
 ### Hazır ZIP'i elle eklemek
 
-GitHub'da **Releases → Draft a new release** aç. Yeni bir etiket (örneğin `v1.1.0`) oluştur.
+GitHub'da **Releases → Draft a new release** aç. Yeni bir etiket (örneğin `v1.2.0`) oluştur.
 Hazırlanan **SteamAchievementUnlocker-win-x64.zip** ve **SHA256SUMS.txt** dosyalarını ekle,
 istersen **SteamAchievementUnlocker-source.zip** dosyasını da ekleyip yayınla.
 Kullanıcılara bu Release sayfasını gönder; **Code → Download ZIP** kaynak kod içindir.
@@ -32,8 +32,8 @@ Kullanıcılara bu Release sayfasını gönder; **Code → Download ZIP** kaynak
 Depoda Actions açıkken bir sürüm etiketi gönder:
 
 ```powershell
-git tag v1.1.1
-git push origin v1.1.1
+git tag v1.2.1
+git push origin v1.2.1
 ```
 
 İş akışı testleri çalıştırır, .NET içeren Windows ZIP'ini üretir ve etiket için GitHub Release oluşturur.

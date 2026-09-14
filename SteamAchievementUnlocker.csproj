@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
   </PropertyGroup>

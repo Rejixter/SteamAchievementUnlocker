@@ -10,7 +10,7 @@ using Microsoft.Win32;
 
 namespace SteamAchievementUnlocker;
 
-public record SteamGame(uint AppId, string Name, bool IsInstalled);
+public record SteamGame(uint AppId, string Name, bool IsInstalled, bool FromCache = false);
 
 /// <summary>
 /// Reads Steam's own local files to find installed games and the currently
@@ -23,6 +23,49 @@ public record SteamGame(uint AppId, string Name, bool IsInstalled);
 /// </summary>
 public static class SteamLibraryScanner
 {
+    // These are candidates, never proof of ownership or current Family access.
+    // No login cookies, credentials, or other users' private config are read.
+    public static List<SteamGame> GetCachedLibraryGames(string? steamPath = null)
+    {
+        steamPath ??= GetSteamInstallPath();
+        if (steamPath is null) return new();
+        var ids = new HashSet<uint>();
+        ReadDirectory(Path.Combine(steamPath, "appcache", "librarycache"), true);
+        ulong? user = GetCurrentUserSteamId64(steamPath);
+        if (user is >= 76561197960265728UL)
+            ReadDirectory(Path.Combine(steamPath, "userdata", (user.Value - 76561197960265728UL).ToString(), "config", "librarycache"), false);
+        return ids.Order().Select(id => new SteamGame(id, $"AppID {id}", false, true)).ToList();
+
+        void ReadDirectory(string path, bool shared)
+        {
+            try
+            {
+                if (!Directory.Exists(path)) return;
+                foreach (string entry in Directory.EnumerateFileSystemEntries(path))
+                {
+                    string name = Path.GetFileName(entry);
+                    if (shared)
+                    {
+                        // Current clients use numeric directories; older clients use appid_asset.jpg.
+                        if (!Directory.Exists(entry))
+                        {
+                            int separator = name.IndexOf('_');
+                            if (separator < 1) continue;
+                            name = name[..separator];
+                        }
+                    }
+                    else
+                    {
+                        if (!name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
+                        name = Path.GetFileNameWithoutExtension(name);
+                    }
+                    if (uint.TryParse(name, out uint id) && id > 0) ids.Add(id);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
     public static List<SteamGame> GetInstalledGames()
     {
         var games = new List<SteamGame>();

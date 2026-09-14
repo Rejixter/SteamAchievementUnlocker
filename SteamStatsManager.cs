@@ -18,6 +18,8 @@ public class SteamStatsManager : IDisposable
 {
     public uint AppId { get; }
     public bool StatsLoaded { get; private set; }
+    public bool StatsFailed { get; private set; }
+    private EResult? _storeResult;
 
     private Callback<UserStatsReceived_t>? _statsReceivedCallback;
     private Callback<UserStatsStored_t>? _statsStoredCallback;
@@ -60,6 +62,13 @@ public class SteamStatsManager : IDisposable
             return false;
         }
 
+        if (SteamUtils.GetAppID().m_AppId != AppId || !SteamUser.BLoggedOn() ||
+            (!SteamApps.BIsSubscribed() && !SteamApps.BIsSubscribedFromFamilySharing()))
+        {
+            Console.WriteLine("Steam did not grant access to the requested game.");
+            return false;
+        }
+        if (SteamApps.BIsSubscribedFromFamilySharing()) Console.WriteLine("Using Steam Family Sharing access.");
         _statsReceivedCallback = Callback<UserStatsReceived_t>.Create(OnUserStatsReceived);
         _statsStoredCallback = Callback<UserStatsStored_t>.Create(OnUserStatsStored);
 
@@ -81,6 +90,7 @@ public class SteamStatsManager : IDisposable
 
         if (cb.m_eResult != EResult.k_EResultOK)
         {
+            StatsFailed = true;
             Console.WriteLine($"RequestCurrentStats failed: {cb.m_eResult}. " +
                                "Common causes: this account doesn't own the AppID, " +
                                "or Steam hasn't cached that game's stat schema yet " +
@@ -95,6 +105,7 @@ public class SteamStatsManager : IDisposable
     {
         if (cb.m_nGameID != AppId) return;
 
+        _storeResult = cb.m_eResult;
         Console.WriteLine(cb.m_eResult == EResult.k_EResultOK
             ? "StoreStats confirmed by Steam's servers."
             : $"StoreStats reported: {cb.m_eResult}");
@@ -131,7 +142,7 @@ public class SteamStatsManager : IDisposable
             return false;
         }
 
-        return SteamUserStats.StoreStats();
+        return StoreAndWait();
     }
 
     /// <summary>
@@ -157,8 +168,19 @@ public class SteamStatsManager : IDisposable
             }
         }
 
-        bool stored = SteamUserStats.StoreStats();
+        bool stored = StoreAndWait();
         return allSetOk && stored;
+    }
+
+    private bool StoreAndWait()
+    {
+        _storeResult = null;
+        if (!SteamUserStats.StoreStats()) return false;
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (_storeResult is null && timer.Elapsed < TimeSpan.FromSeconds(20))
+        { RunCallbacks(); System.Threading.Thread.Sleep(100); }
+        if (_storeResult is null) Console.WriteLine("StoreStats confirmation timed out; outcome unknown.");
+        return _storeResult == EResult.k_EResultOK;
     }
 
     public void Dispose()
