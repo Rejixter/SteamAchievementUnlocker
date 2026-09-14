@@ -27,8 +27,9 @@ try {
     & (Join-Path $publishDirectory 'SteamAchievementUnlocker.exe') --self-test
     if ($LASTEXITCODE -ne 0) { throw 'Native DLL smoke test failed.' }
 
+
     # Source archives use an explicit allowlist, not a ZIP of the working directory.
-    $rootFiles = @('Program.cs','AchievementCatalog.cs','SteamLibraryScanner.cs','SteamRuntime.cs','SteamStatsManager.cs','UserSettings.cs',
+    $rootFiles = @('Program.cs','BatchRunner.cs','AchievementCatalog.cs','SteamLibraryScanner.cs','SteamRuntime.cs','SteamStatsManager.cs','UserSettings.cs',
         'SteamAchievementUnlocker.csproj','packages.lock.json','global.json','NuGet.Config','.gitignore','README.md','LICENSE','THIRD-PARTY-NOTICES.md','GITHUB-PUBLISHING.md')
     foreach ($file in $rootFiles) { Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination $sourceDirectory }
     foreach ($file in @('lib\steam_api64.dll','lib\Steamworks.NET.LICENSE.txt','lib\DOTNET-LICENSE.txt','lib\DOTNET-THIRD-PARTY-NOTICES.txt','scripts\Publish-Release.ps1','tests\Program.cs','tests\SteamAchievementUnlocker.Tests.csproj','.github\workflows\release.yml')) {
@@ -37,7 +38,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination $target
     }
     $forbidden = Get-ChildItem -LiteralPath $publishDirectory,$sourceDirectory -Recurse -Force -File | Where-Object {
-        $_.Name -like 'web_api_key*' -or $_.Name -eq 'steam_appid.txt' -or $_.Name -like 'achievement-cache*' -or $_.Name -like '.env*' -or $_.Extension -in '.pfx','.pem'
+        $_.Name -like 'web_api_key*' -or $_.Name -eq 'steam_appid.txt' -or $_.Name -like 'batch-*.json' -or $_.Name -like 'achievement-cache*' -or $_.Name -like '.env*' -or $_.Extension -in '.pfx','.pem'
     }
     if ($forbidden) { throw 'Personal configuration detected in release staging.' }
     $runtimeConfig = Get-Content -LiteralPath (Join-Path $publishDirectory 'SteamAchievementUnlocker.runtimeconfig.json') -Raw | ConvertFrom-Json
@@ -66,3 +67,4 @@ finally {
         Remove-Item -LiteralPath $resolvedStage -Recurse -Force
     }
 }
+
