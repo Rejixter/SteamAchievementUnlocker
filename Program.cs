@@ -18,11 +18,12 @@ if (args.Contains("--self-test"))
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 using var metadataHttp = new System.Net.Http.HttpClient();
-metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.2.0");
+metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.3.0");
 var catalog = new AchievementCatalog(metadataHttp, Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json"));
 bool hideWithoutAchievements = true;
-bool includeCachedLibrary = false;
-List<SteamGame>? library = null;
+bool showCachedLibrary = false;
+List<SteamGame>? mainLibrary = null;
+List<SteamGame>? cachedLibrary = null;
 bool scanRequested = true;
 
 if (args.Length == 3 && (args[0] == "--bulk-worker" || args[0] == "--game-worker") && uint.TryParse(args[1], out uint workerId) && workerId > 0)
@@ -48,8 +49,14 @@ async Task RunMainMenu()
     while (true)
     {
         Console.Clear();
-        Console.WriteLine("=== Steam Achievement Unlocker v1.2.0 ===\n");
-        library ??= await GetGamesListAsync();
+        Console.WriteLine("=== Steam Achievement Unlocker v1.3.0 ===\n");
+        mainLibrary ??= await GetGamesListAsync();
+        if (showCachedLibrary)
+            cachedLibrary ??= SteamLibraryScanner.GetAdditionalCachedGames(mainLibrary, SteamLibraryScanner.GetCachedLibraryGames());
+        var library = showCachedLibrary ? cachedLibrary! : mainLibrary;
+        Console.WriteLine(showCachedLibrary ? "LIST 2: Family / cached games" : "LIST 1: Main library");
+        if (showCachedLibrary)
+            Console.WriteLine("Additional cached candidates only. Family access is unverified; entries may be stale.");
         if (scanRequested && hideWithoutAchievements && library.Count > 0)
         {
             Console.WriteLine("Checking achievement support (cached for 7 days). Press Esc to skip.");
@@ -96,7 +103,7 @@ async Task RunMainMenu()
         Console.WriteLine("\n  0) Enter an AppID manually");
         Console.WriteLine("  f) Toggle achievement filter    r) Refresh library / continue scan");
         Console.WriteLine("  c) Clear achievement cache      k) Add/remove your own API key (optional)");
-        Console.WriteLine($"  s) Include cached library / family candidates: {(includeCachedLibrary ? "ON" : "OFF")}");
+        Console.WriteLine(showCachedLibrary ? "  back) Return to main library" : "  s) Open separate family / cached games list");
         Console.WriteLine("  all) Unlock achievements in ALL listed games (confirmation required)");
         Console.WriteLine("  q) Quit");
         Console.Write("\nChoice: ");
@@ -107,12 +114,13 @@ async Task RunMainMenu()
             return;
         switch (choice.ToLowerInvariant())
         {
-            case "s": includeCachedLibrary = !includeCachedLibrary; library = null; scanRequested = true; continue;
+            case "s": if (!showCachedLibrary) { showCachedLibrary = true; scanRequested = true; } continue;
+            case "back": if (showCachedLibrary) { showCachedLibrary = false; scanRequested = true; } continue;
             case "all": await RunBatch(games); catalog = new AchievementCatalog(metadataHttp, Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json")); Pause(); continue;
             case "f": hideWithoutAchievements = !hideWithoutAchievements; continue;
-            case "r": library = null; scanRequested = true; continue;
+            case "r": mainLibrary = null; cachedLibrary = null; scanRequested = true; continue;
             case "c": catalog.Clear(); scanRequested = true; continue;
-            case "k": UserSettings.ConfigureApiKey(); library = null; scanRequested = true; Pause(); continue;
+            case "k": UserSettings.ConfigureApiKey(); mainLibrary = null; cachedLibrary = null; scanRequested = true; Pause(); continue;
         }
 
         uint appId;
@@ -149,14 +157,6 @@ async Task RunMainMenu()
 async Task<List<SteamGame>> GetGamesListAsync()
 {
     var installed = SteamLibraryScanner.GetInstalledGames();
-    if (includeCachedLibrary)
-    {
-        var cached = SteamLibraryScanner.GetCachedLibraryGames();
-        var known = installed.Select(g => g.AppId).ToHashSet();
-        installed.AddRange(cached.Where(g => known.Add(g.AppId)));
-        Console.WriteLine("Cached candidates can include family games and stale entries. Steam access is checked per game.");
-    }
-
     string apiKey = UserSettings.ReadApiKey();
     if (string.IsNullOrWhiteSpace(apiKey))
     {
