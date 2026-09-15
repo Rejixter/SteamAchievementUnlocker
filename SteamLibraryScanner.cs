@@ -23,6 +23,12 @@ public record SteamGame(uint AppId, string Name, bool IsInstalled, bool FromCach
 /// </summary>
 public static class SteamLibraryScanner
 {
+    public static List<SteamGame> GetAdditionalCachedGames(IEnumerable<SteamGame> mainLibrary, IEnumerable<SteamGame> cachedLibrary)
+    {
+        var seen = mainLibrary.Select(game => game.AppId).ToHashSet();
+        return cachedLibrary.Where(game => game.AppId > 0 && seen.Add(game.AppId)).ToList();
+    }
+
     // These are candidates, never proof of ownership or current Family access.
     // No login cookies, credentials, or other users' private config are read.
     public static List<SteamGame> GetCachedLibraryGames(string? steamPath = null)
