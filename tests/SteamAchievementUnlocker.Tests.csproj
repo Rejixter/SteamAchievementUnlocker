@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\BatchRunner.cs" Link="BatchRunner.cs" />
     <Compile Include="..\AchievementCatalog.cs" Link="AchievementCatalog.cs" />
     <Compile Include="..\SteamLibraryScanner.cs" Link="SteamLibraryScanner.cs" />
     <Compile Include="..\UserSettings.cs" Link="UserSettings.cs" />

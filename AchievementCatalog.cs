@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace SteamAchievementUnlocker;
 
 public enum AchievementSupport { Unknown, None, Available }
-public record AchievementCacheEntry(AchievementSupport Support, DateTimeOffset CheckedAt);
+public record AchievementCacheEntry(AchievementSupport Support, DateTimeOffset CheckedAt, string? Name = null);
 public record FilterProgress(int Checked, int Total);
 
 /// <summary>
@@ -35,6 +35,8 @@ public sealed class AchievementCatalog
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
     }
 
+    public string? GetName(uint appId) => _cache.TryGetValue(appId, out var entry) ? entry.Name : null;
+
     public AchievementSupport GetSupport(uint appId)
     {
         if (!_cache.TryGetValue(appId, out var entry) || !Enum.IsDefined(entry.Support)) return AchievementSupport.Unknown;
@@ -55,7 +57,7 @@ public sealed class AchievementCatalog
 
     public void RecordFromClient(uint appId, bool hasAchievements)
     {
-        _cache[appId] = new(hasAchievements ? AchievementSupport.Available : AchievementSupport.None, DateTimeOffset.UtcNow);
+        _cache[appId] = new(hasAchievements ? AchievementSupport.Available : AchievementSupport.None, DateTimeOffset.UtcNow, GetName(appId));
         Save();
     }
 
@@ -76,20 +78,30 @@ public sealed class AchievementCatalog
                 if (Volatile.Read(ref stopped) != 0) return;
                 AchievementSupport support = AchievementSupport.Unknown;
                 bool failedRequest = false;
+                string? gameName = GetName(id);
                 try
                 {
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                     timeout.CancelAfter(TimeSpan.FromSeconds(8));
-                    using var response = await _http.GetAsync($"https://store.steampowered.com/api/appdetails?appids={id}&filters=categories,achievements", timeout.Token);
+                    using var response = await _http.GetAsync($"https://store.steampowered.com/api/appdetails?appids={id}&filters=basic,categories,achievements", timeout.Token);
                     if (response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.Forbidden)
                         Interlocked.Exchange(ref stopped, 1);
                     if (response.IsSuccessStatusCode)
-                        support = ParseStoreResponse(await response.Content.ReadAsStringAsync(timeout.Token), id);
+                        {
+                        string json = await response.Content.ReadAsStringAsync(timeout.Token);
+                        support = ParseStoreResponse(json, id);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                            doc.RootElement.TryGetProperty(id.ToString(), out var app) && app.ValueKind == JsonValueKind.Object &&
+                            app.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
+                            data.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String)
+                            gameName = name.GetString();
+                    }
                     else failedRequest = true;
                 }
                 catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException) { failedRequest = true; }
                 if (token.IsCancellationRequested) return;
-                _cache[id] = new(support, DateTimeOffset.UtcNow);
+                _cache[id] = new(support, DateTimeOffset.UtcNow, gameName);
                 // Bound an offline or unavailable-service scan instead of waiting on hundreds of timeouts.
                 if (failedRequest && Interlocked.Increment(ref failures) >= 6)
                     Interlocked.Exchange(ref stopped, 1);

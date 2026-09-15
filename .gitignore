@@ -17,3 +17,5 @@ publish/
 .env.*
 *.pfx
 *.pem
+
+**/batch-*.json
