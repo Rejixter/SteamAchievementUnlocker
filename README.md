@@ -1,4 +1,4 @@
-# Steam Achievement Unlocker v1.2.0
+# Steam Achievement Unlocker v1.3.0
 
 A Windows console app for viewing and unlocking Steam achievements for games in your library.
 
@@ -12,19 +12,27 @@ A Windows console app for viewing and unlocking Steam achievements for games in 
 The EXE, DLLs and runtime files must stay together. GitHub's green **Code → Download ZIP**
 downloads source code; use the Windows ZIP under **Releases** for the ready-to-run app.
 
-## New in v1.2.0 / Yenilikler
+## New in v1.3.0
+
+- `s` opens a **separate Family / cached games list**. Cached candidates are no longer added to the main library.
+- Games already in the main library are excluded from the second list, even when hidden by the achievement filter.
+- `back` returns to the main library. `all` only processes games displayed in the current list.
+- The README and release notes are in English.
+
+The main library contains installed games, plus owned games when an optional API key is configured. An installed shared game can already appear there. The second list contains additional cache candidates; it is not a verified list of all Steam Families games.
+
+## Features introduced in v1.2.0
 
 - Main menu `all`: unlock locked achievements across **all games currently listed**, with one `UNLOCK ALL` confirmation. Check the displayed list first. Each game uses a fresh worker process; failed games do not stop the queue. Press `Q` to stop after the current game. Already completed games and games with no achievements are skipped.
-- Main menu `s`: include additional local library-cache candidates, including cached family-shared games that are not installed. Run the Steam library first, then refresh with `r`. This is best-effort discovery, not a complete Steam Families API integration. Shared cache entries may belong to another account, a removed game, or a non-game app; they are marked **cached: access unverified**. Uncached games can still be entered by AppID using `0`. Names load during the metadata scan; unresolved names stay as AppIDs.
+- Discover additional local library-cache candidates, including cached family-shared games that are not installed. In v1.3.0, press `s` to open them in a separate list. Open your Steam library first, then refresh with `r`. This is best-effort discovery, not a complete Steam Families API integration. Shared cache entries may belong to another account, a removed game, or a non-game app; they are marked **cached: access unverified**. Uncached games can still be entered by AppID using `0`. Names load during the metadata scan; unresolved names stay as AppIDs.
 - Each game session checks the requested AppID, logged-in account, and subscription/family access reported by Steam. It does not require direct ownership when Steam grants Family Sharing access. Games blocked by Steam are reported as unavailable.
 - A save is successful only after Steam's `UserStatsStored_t` OK callback. Timeouts are **unconfirmed**, never success; some changes may still have reached Steam.
 - Batch results are displayed and saved to `%LOCALAPPDATA%\SteamAchievementUnlocker\batch-*.json`. Reports stay on your computer and are excluded from release packages.
 
-Türkçe: Ana menüde `s` ile aile oyunları dahil önbellekteki ek oyunları listele.
-Listeyi kontrol edip `all` yaz; ardından `UNLOCK ALL` ile toplu işlemi başlat.
-`Q`, mevcut oyun tamamlanınca işlemi durdurur. Sonuçlar her oyun için ayrı raporlanır.
-Aile desteği Steam'in verdiği erişime ve yerel önbelleğe bağlıdır; tüm aile oyunlarının
-bulunacağı veya her oyunun başarım kaydını kabul edeceği garanti edilmez.
+Check the current list, type `all`, then confirm with `UNLOCK ALL` to start a batch.
+Press `Q` to stop after the current game. Results are reported separately for each game.
+Family support depends on Steam's access checks and local cache data. Discovery of every
+shared game and successful achievement updates for every game are not guaranteed.
 
 References: [Steam access and Family Sharing](https://partner.steamgames.com/doc/api/ISteamApps),
 [Steam stats and save callbacks](https://partner.steamgames.com/doc/api/ISteamUserStats).
@@ -39,7 +47,8 @@ Games with all achievements unlocked remain listed.
 - `r`: refresh the library and continue checking unresolved games.
 - `c`: clear cached metadata and check again.
 - `0`: enter an AppID directly, including games hidden by the filter.
-- `s`: include/exclude cached library and family candidates.
+- `s`: open the separate family / cached games list.
+- `back`: return from the second list to the main library.
 - `all`: process all currently listed games after confirmation.
 - `k`: add or remove your own optional API key.
 - `q`: quit.
