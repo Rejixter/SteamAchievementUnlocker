@@ -44,6 +44,16 @@ try
     Check(candidates.Select(g => g.AppId).SequenceEqual(new uint[] { 10, 620, 999 }), "Family candidates merge old/new cache layouts and current user cache without duplicates");
     Check(candidates.All(g => g.FromCache && !g.IsInstalled), "Cache candidates never claim installation or ownership");
     Check(SteamLibraryScanner.GetCachedLibraryGames(Path.Combine(scratch, "missing")).Count == 0, "Missing Steam cache is handled");
+    var mainGames = new List<SteamGame> { new(10, "Installed", true), new(620, "Owned, not installed", false) };
+    var mainSnapshot = mainGames.ToArray();
+    var separate = SteamLibraryScanner.GetAdditionalCachedGames(mainGames, candidates.Concat(candidates).Append(new(0, "Invalid", false, true)));
+    Check(separate.Select(g => g.AppId).SequenceEqual(new uint[] { 999 }), "Second list excludes all main-library IDs, duplicates and invalid IDs");
+    Check(mainGames.SequenceEqual(mainSnapshot) && candidates.Count == 3, "Building the second list does not mutate either input library");
+    Check(separate.All(g => g.FromCache && !g.IsInstalled), "Second list preserves unverified cache flags");
+    Check(SteamLibraryScanner.GetAdditionalCachedGames(mainGames, mainGames).Count == 0, "A fully overlapping cache produces an empty second list");
+    Check(SteamLibraryScanner.GetAdditionalCachedGames(Array.Empty<SteamGame>(), candidates).SequenceEqual(candidates), "Cache remains browsable when the main library is empty");
+    var separateBatch = await BatchRunner.RunAsync(separate, _ => Task.FromResult(2), () => false, _ => { });
+    Check(separateBatch.Select(g => g.AppId).SequenceEqual(new uint[] { 999 }) && mainGames.SequenceEqual(mainSnapshot), "A second-list batch only visits second-list games");
     var attempted = new List<uint>();
     var reported = new List<BatchResult>();
     var batch = await BatchRunner.RunAsync(candidates.Concat(candidates), game =>
