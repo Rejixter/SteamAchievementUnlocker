@@ -19,3 +19,4 @@ publish/
 *.pem
 
 **/batch-*.json
+**/library-state-*

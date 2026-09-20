@@ -117,7 +117,8 @@ public class SteamStatsManager : IDisposable
         for (uint i = 0; i < count; i++)
         {
             string apiName = SteamUserStats.GetAchievementName(i);
-            SteamUserStats.GetAchievement(apiName, out bool unlocked);
+            if (string.IsNullOrEmpty(apiName) || !SteamUserStats.GetAchievement(apiName, out bool unlocked))
+                throw new InvalidOperationException("Steam could not read an achievement state.");
             string displayName = SteamUserStats.GetAchievementDisplayAttribute(apiName, "name");
             yield return (apiName, displayName, unlocked);
         }
