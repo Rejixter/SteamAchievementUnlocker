@@ -1,53 +1,39 @@
-# GitHub'da paylaşma
+# Publishing a release
 
-Bu klasör kaynak kod deposudur. Kullanıcıya verilecek hazır uygulama **SteamAchievementUnlocker-win-x64.zip** dosyasıdır.
-Kişisel API anahtarı, Steam hesap dosyaları, `.vs`, `bin` ve `obj` kaynak ZIP'ine dahil edilmez.
+The ready-to-run application is **SteamAchievementUnlocker-win-x64.zip**.
+GitHub's **Code → Download ZIP** contains source code instead.
 
-## İlk yükleme
+## Validate and package
 
-1. GitHub'da boş bir depo oluştur: örneğin `SteamAchievementUnlocker`.
-2. Bu temiz kaynak klasörünü GitHub Desktop ile **Add local repository** üzerinden ekle.
-   Henüz Git deposu değilse arayüzden **create a repository here** seçeneğini kullan.
-3. Değişiklik listesinde yalnızca proje kaynakları, `lib` bağımlılıkları, belgeler,
-   testler ve `.github/workflows/release.yml` olduğunu kontrol edip commit oluştur.
-4. **Publish repository** ile yükle. Herkese açık paylaşım istiyorsan private seçimini kaldır.
-
-Eski proje klasörünü veya ilk gönderdiğin ZIP'i yükleme; içinde kişisel anahtar dosyası vardı.
-Bu klasördeki `.gitignore` kişisel dosyaları ayrıca dışlar. Daha önce Git'e kaydedilmiş bir
-dosyayı `.gitignore` geçmişten silmez; bu yüzden temiz klasörden yeni depo oluştur.
-
-## Kullanıcıların doğrudan çalıştıracağı Release
-
-İki yöntemden birini seç:
-
-### Hazır ZIP'i elle eklemek
-
-GitHub'da **Releases → Draft a new release** aç. Yeni bir etiket (örneğin `v1.2.0`) oluştur.
-Hazırlanan **SteamAchievementUnlocker-win-x64.zip** ve **SHA256SUMS.txt** dosyalarını ekle,
-istersen **SteamAchievementUnlocker-source.zip** dosyasını da ekleyip yayınla.
-Kullanıcılara bu Release sayfasını gönder; **Code → Download ZIP** kaynak kod içindir.
-
-### Sonraki sürümleri otomatik hazırlamak
-
-Depoda Actions açıkken bir sürüm etiketi gönder:
+Use Windows and the .NET 8 SDK:
 
 ```powershell
-git tag v1.2.1
-git push origin v1.2.1
-```
-
-İş akışı testleri çalıştırır, .NET içeren Windows ZIP'ini üretir ve etiket için GitHub Release oluşturur.
-Her sürümde yeni etiket kullan. Daha önce elle yayınladığın etiket için aynı işlemi tekrar çalıştırma.
-Normal commit ve pull request'lerde yalnızca test/derleme yapılır; ZIP'ler Actions artifacts bölümünde oluşur.
-API anahtarı veya ayrıca bir GitHub kişisel erişim anahtarı eklemek gerekmez; iş akışı GitHub'ın otomatik token'ını kullanır.
-
-## Yerel paket üretmek
-
-Windows ve .NET 8 SDK ile proje klasöründe:
-
-```powershell
+dotnet run --project tests/SteamAchievementUnlocker.Tests.csproj -c Release
 ./scripts/Publish-Release.ps1
 ```
 
-Çıktılar `artifacts/` klasörüne gelir. Bu klasör Git tarafından dışlanır.
-Son kullanıcı .NET SDK kurmaz; çalışma zamanı Windows ZIP'inin içindedir.
+The script creates a self-contained Windows archive, an allowlisted source archive,
+and SHA256SUMS.txt in `artifacts/`. It runs native DLL, desktop UI and worker protocol
+smoke tests without initializing a Steam account or changing achievements.
+
+Review the source and archives before publishing. Keep personal API keys, Steam
+account files, progress/exclusion settings, local batch reports, build caches,
+debug symbols and private credentials out of the repository and release assets.
+`.gitignore` does not remove files already tracked in Git history.
+
+## Publish on GitHub
+
+1. Merge the tested version change into the default branch.
+2. Open **Releases → Draft a new release** and create a new version tag, such as `v1.4.0`.
+3. Write the release notes in English and publish. GitHub Actions tests the source,
+   builds the application and attaches the Windows ZIP, source ZIP and checksums.
+4. Wait for all release workflows to finish, then download and verify the assets.
+
+Alternatively, push a new version tag to trigger automatic release creation.
+Use a new tag for each version. Both tag pushes and published releases trigger the
+workflow; wait for both runs when creating a tag through the release page.
+The workflow uses GitHub's temporary token. No personal access token or Steam API
+key belongs in the workflow configuration.
+
+End users only need the entire Windows ZIP and the Steam client. They do not need
+the .NET SDK or a separate .NET runtime installation.

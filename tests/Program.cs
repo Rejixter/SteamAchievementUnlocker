@@ -27,6 +27,31 @@ string scratch = Path.Combine(Path.GetTempPath(), "sau-tests-" + Guid.NewGuid().
 Directory.CreateDirectory(scratch);
 try
 {
+    var state = new LibraryState();
+    var list = new List<SteamGame> { new(1, "Puzzle Adventure", true), new(2, "Space Game", false), new(3, "Unknown", true), new(4, "No achievements", true) };
+    state.Progress[1] = new(5, 5, DateTimeOffset.UtcNow);
+    state.Progress[2] = new(10, 10, DateTimeOffset.UtcNow.AddDays(-2));
+    state.Progress[4] = new(0, 0, DateTimeOffset.UtcNow);
+    Check(state.Filter(list, "PUZZLE", false, false).Single().AppId == 1, "Search is case-insensitive");
+    Check(state.Filter(list, "2", false, false).Single().AppId == 2, "Search accepts AppIDs");
+    Check(state.Filter(list, "", true, false).Select(g => g.AppId).SequenceEqual(new uint[] { 4, 2, 3 }), "Completed filter keeps unknown, stale and zero-achievement entries");
+    Check(new GameProgress(2, 1, DateTimeOffset.UtcNow).Complete == false, "Invalid counts never count as completed");
+    Check(new GameProgress(1, 1, DateTimeOffset.UtcNow.AddHours(2)).Complete == false, "Future timestamps never count as completed");
+    state.Excluded[1] = list[0];
+    Check(!state.Filter(list, "", false, false).Any(g => g.AppId == 1), "Excluded games stay out of the main list");
+    Check(state.Filter(state.Excluded.Values, "", true, true).Single().AppId == 1, "Excluded games remain restorable even when completed");
+    Check(LibraryState.SelectedVisible(list.Skip(1), new HashSet<uint> { 1, 2 }).Single().AppId == 2, "Hidden selections never enter a batch");
+    string statePath = LibraryState.PathForAccount(scratch, 123);
+    Check(statePath != LibraryState.PathForAccount(scratch, 456), "Different accounts have separate progress and exclusions");
+    state.Save(statePath);
+    var loadedState = LibraryState.Load(statePath);
+    Check(loadedState.Excluded.ContainsKey(1) && loadedState.Progress[1].Complete, "Progress and exclusions survive restart");
+    loadedState.Excluded.Remove(1); loadedState.Save(statePath);
+    Check(!LibraryState.Load(statePath).Excluded.ContainsKey(1), "Restoring a game is persisted");
+    File.WriteAllText(statePath, "invalid json");
+    Check(LibraryState.Load(statePath).Excluded.Count == 0, "Corrupt settings fall back to a usable library");
+    File.WriteAllText(statePath, "{\"Excluded\":null,\"Progress\":null}");
+    Check(LibraryState.Load(statePath).Progress.Count == 0, "Null settings collections are repaired");
     string fakeSteam = Path.Combine(scratch, "steam");
     string sharedCache = Path.Combine(fakeSteam, "appcache", "librarycache");
     Directory.CreateDirectory(Path.Combine(sharedCache, "620"));

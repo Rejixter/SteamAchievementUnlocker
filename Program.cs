@@ -6,7 +6,29 @@ using System.Linq;
 using System.Threading;
 using SteamAchievementUnlocker;
 
-Console.Title = "Steam Achievement Unlocker";
+if (args.SequenceEqual(new[] { "--worker-self-test" }))
+{
+    var result = await DesktopWorker.StartAsync(10, new(0, "read"));
+    Environment.ExitCode = !result.Success && result.Achievements is null && result.Status.StartsWith("Could not read Steam data", StringComparison.Ordinal) ? 0 : 1;
+    Console.WriteLine(Environment.ExitCode == 0 ? "PASS: desktop worker rejects missing account without initializing Steam." : "FAIL: desktop worker protocol.");
+    return;
+}
+
+if (args.FirstOrDefault() == "--desktop-worker")
+{
+    Environment.ExitCode = DesktopWorker.Run(args);
+    return;
+}
+if (args.Length == 0 || args.SequenceEqual(new[] { "--demo" }) || args.SequenceEqual(new[] { "--ui-self-test" }))
+{
+    DesktopForm.Run(args.Length > 0, args.Contains("--ui-self-test"));
+    return;
+}
+if (args.Contains("--console") || args.Contains("--game-worker"))
+{
+    if (!ConsoleWindow.AttachConsole(uint.MaxValue) && args.Contains("--console")) ConsoleWindow.AllocConsole();
+    args = args.Where(arg => arg != "--console").ToArray();
+}
 
 if (args.Contains("--self-test"))
 {
@@ -18,7 +40,7 @@ if (args.Contains("--self-test"))
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 using var metadataHttp = new System.Net.Http.HttpClient();
-metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.3.0");
+metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.4.0");
 var catalog = new AchievementCatalog(metadataHttp, Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json"));
 bool hideWithoutAchievements = true;
 bool showCachedLibrary = false;
@@ -49,7 +71,7 @@ async Task RunMainMenu()
     while (true)
     {
         Console.Clear();
-        Console.WriteLine("=== Steam Achievement Unlocker v1.3.0 ===\n");
+        Console.WriteLine("=== Steam Achievement Unlocker v1.4.0 (console mode) ===\n");
         mainLibrary ??= await GetGamesListAsync();
         if (showCachedLibrary)
             cachedLibrary ??= SteamLibraryScanner.GetAdditionalCachedGames(mainLibrary, SteamLibraryScanner.GetCachedLibraryGames());
@@ -355,4 +377,12 @@ void Pause()
 sealed class InlineProgress(Action<FilterProgress> report) : IProgress<FilterProgress>
 {
     public void Report(FilterProgress value) => report(value);
+}
+
+static class ConsoleWindow
+{
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    public static extern bool AttachConsole(uint processId);
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    public static extern bool AllocConsole();
 }

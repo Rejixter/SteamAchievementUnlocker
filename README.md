@@ -1,97 +1,116 @@
-# Steam Achievement Unlocker v1.3.0
+# Steam Achievement Unlocker v1.4.0
 
-A Windows console app for viewing and unlocking Steam achievements for games in your library.
+A portable Windows desktop application for browsing Steam games, reading achievement
+progress and unlocking selected achievements. The interface and documentation are in English.
 
-## Download and run 
+## Download and run
 
 1. Open this repository's **Releases** section and download **SteamAchievementUnlocker-win-x64.zip**.
-2. Extract the **entire ZIP** into a folder. Do not launch the EXE from inside the ZIP viewer.
-3. Open Steam and sign in, then run **SteamAchievementUnlocker.exe**.
+2. Extract the **entire ZIP** to a writable folder. Keep the EXE, DLLs and runtime files together.
+3. Open Steam, sign in and run **SteamAchievementUnlocker.exe**. A desktop window opens; no console commands are needed.
 
-**No .NET installation and no API key are required to start.** Windows x64 is required.
-The EXE, DLLs and runtime files must stay together. GitHub's green **Code → Download ZIP**
-downloads source code; use the Windows ZIP under **Releases** for the ready-to-run app.
+Windows x64 is required. No separate .NET installation or API key is required to start.
+GitHub's **Code → Download ZIP** contains source code, not the ready-to-run application.
 
-## New in v1.3.0
+## New in v1.4.0
 
-- `s` opens a **separate Family / cached games list**. Cached candidates are no longer added to the main library.
-- Games already in the main library are excluded from the second list, even when hidden by the achievement filter.
-- `back` returns to the main library. `all` only processes games displayed in the current list.
-- The README and release notes are in English.
+- **Desktop interface:** a Windows Forms application replaces the default console menu.
+- **Search:** filter the active list by game name or AppID.
+- **Multiple selection:** check individual games or use **Select visible** to choose a batch.
+- **Achievement progress:** **Read progress** displays counts such as `18/25 (72%)`. **Hide 100% complete** hides games with fresh, fully completed progress.
+- **Excluded games:** **Exclude selected** keeps games out of both library lists. Restore them from the **Excluded games** tab.
 
-The main library contains installed games, plus owned games when an optional API key is configured. An installed shared game can already appear there. The second list contains additional cache candidates; it is not a verified list of all Steam Families games.
+## Library tabs and selection
 
-## Features introduced in v1.2.0
+**Main library** contains installed games and, with an optional API key, owned games
+that are not installed. An installed shared game can already appear in this tab.
 
-- Main menu `all`: unlock locked achievements across **all games currently listed**, with one `UNLOCK ALL` confirmation. Check the displayed list first. Each game uses a fresh worker process; failed games do not stop the queue. Press `Q` to stop after the current game. Already completed games and games with no achievements are skipped.
-- Discover additional local library-cache candidates, including cached family-shared games that are not installed. In v1.3.0, press `s` to open them in a separate list. Open your Steam library first, then refresh with `r`. This is best-effort discovery, not a complete Steam Families API integration. Shared cache entries may belong to another account, a removed game, or a non-game app; they are marked **cached: access unverified**. Uncached games can still be entered by AppID using `0`. Names load during the metadata scan; unresolved names stay as AppIDs.
-- Each game session checks the requested AppID, logged-in account, and subscription/family access reported by Steam. It does not require direct ownership when Steam grants Family Sharing access. Games blocked by Steam are reported as unavailable.
-- A save is successful only after Steam's `UserStatsStored_t` OK callback. Timeouts are **unconfirmed**, never success; some changes may still have reached Steam.
-- Batch results are displayed and saved to `%LOCALAPPDATA%\SteamAchievementUnlocker\batch-*.json`. Reports stay on your computer and are excluded from release packages.
+**Family / cached** contains additional candidates discovered in Steam's local library
+cache. Games already in the main library are excluded from this list, including games
+hidden by a filter. Cache entries are not proof of family ownership or current access:
+they may be stale, associated with another account, or refer to a non-game app.
+This is best-effort discovery, not a complete Steam Families API integration.
 
-Check the current list, type `all`, then confirm with `UNLOCK ALL` to start a batch.
-Press `Q` to stop after the current game. Results are reported separately for each game.
-Family support depends on Steam's access checks and local cache data. Discovery of every
-shared game and successful achievement updates for every game are not guaranteed.
+**Excluded games** lists games you have hidden. Search works here, while the achievement
+filters are ignored so excluded games remain restorable. Restore a game before processing it.
 
-References: [Steam access and Family Sharing](https://partner.steamgames.com/doc/api/ISteamApps),
-[Steam stats and save callbacks](https://partner.steamgames.com/doc/api/ISteamUserStats).
+Search and filters only affect the active tab. Selections that become hidden are cleared;
+switching tabs clears selection. **Unlock selected** only processes checked games in the
+current visible list. Use **Select visible** after applying your filters to process that list.
+**Clear selection** unchecks the current selection.
 
-## Achievement filter
+**Add AppID** adds a game for the current session. **Refresh library** reloads discovery
+and the detected Steam account; manually added entries may need to be entered again.
 
-Games that Store metadata reports as having no Steam achievements are hidden by default.
-This checks whether the game has achievements at all, **not** whether you have already unlocked them.
-Games with all achievements unlocked remain listed.
+## Read progress and use filters
 
-- `f`: show all games / turn the filter back on.
-- `r`: refresh the library and continue checking unresolved games.
-- `c`: clear cached metadata and check again.
-- `0`: enter an AppID directly, including games hidden by the filter.
-- `s`: open the separate family / cached games list.
-- `back`: return from the second list to the main library.
-- `all`: process all currently listed games after confirmation.
-- `k`: add or remove your own optional API key.
-- `q`: quit.
+1. Check the games you want to inspect, or click **Select visible**.
+2. Click **Read progress**. Each game is read in a separate process, sequentially.
+3. Turn on **Hide 100% complete** to hide games whose checked progress is complete.
 
-The first scan needs internet access and can take a few minutes for large libraries.
-Press **Esc** to skip it. Each pass has a 90-second limit; press `r` to continue.
-Successful checks are cached for seven days; failed checks retry after ten minutes.
-Games with missing metadata, delisted Store pages, failed requests or no completed check
-remain visible with **[?]**. If Steam limits requests, the scan stops and preserves unresolved games.
-The exact number removed depends on your library; this is a best-effort metadata filter.
-The public Store endpoint is not a versioned Steamworks API and may change.
+Reading progress initializes a Steam game session and may show you as in-game on Steam.
+It does not unlock achievements. Counts are cached locally for the detected account for
+24 hours; read them again after playing or changing achievements elsewhere. Expired,
+missing or failed progress reads show **Not checked** and never hide a game as complete.
+Games with zero achievements are not treated as 100% completed games.
+Refresh the library after switching Steam accounts. Workers reject a different logged-in
+account before submitting achievement changes.
 
-Cache location: `%LOCALAPPDATA%\SteamAchievementUnlocker\achievement-cache.json`.
-Loading a game's actual Steam achievement list updates its cached result.
+**Hide games without achievements** is a different filter: it checks whether a game
+supports achievements at all. Use **Check achievement support** to fetch Store metadata
+for the current visible list and resolve cached game names. Each pass is limited to
+90 seconds; run it again to continue. Known checks last seven days, failed checks retry
+after ten minutes, and unknown games stay visible. The Store endpoint is not a versioned
+Steamworks API and may change. Reading a game's actual achievements also updates this filter.
+
+## Unlock achievements
+
+**Unlock selected** opens a confirmation window listing the selected games. Type
+`UNLOCK ALL` to start. Each game runs separately; failures are reported and the queue
+continues. **Stop after current game** stops before starting the next game. Closing the
+window during an operation can stop after the current operation and then close.
+
+For individual achievements, select a game row and click **Open achievements**, or
+double-click the row. The window shows its unlocked count and a checklist of remaining
+locked achievements. Check the ones you want and click **Unlock selected**; confirmation
+is required. **Select all locked** selects all remaining achievements in that game.
+
+A successful save requires Steam's asynchronous `UserStatsStored_t` OK callback.
+Failed or timed-out saves remain **unconfirmed**; read progress again before retrying.
+Steam must grant access to each game. Some games manage achievements on their own servers
+or impose additional restrictions, so successful changes are not guaranteed.
+Tests do not validate live-account unlocking or every shared game.
+
+Batch results are displayed and written locally to `batch-*.json`. There is no automatic
+resume feature in this version. Confirmed changes affect your Steam profile.
 
 ## Optional: full owned library
 
-Without a key the app discovers installed games from local Steam library manifests.
-For owned but uninstalled games, get **your own** key at https://steamcommunity.com/dev/apikey
-and press `k` in the menu. Key entry is hidden. Empty input removes the saved key;
-Esc cancels. If the Web API cannot return your library, the app falls back to installed games.
-The account is detected from Steam's local login metadata; with multiple accounts, sign into
-the intended account in Steam first.
+Without an API key, the main list uses installed-game manifests. For owned, uninstalled
+games, get **your own** key from [Steam](https://steamcommunity.com/dev/apikey) and open
+**Settings**. Entry is masked; saving an empty value removes the key. Cancel keeps existing
+settings. If the request fails, the app falls back to installed games.
 
-The key is stored as a local text file at:
-`%LOCALAPPDATA%\SteamAchievementUnlocker\web_api_key.txt`.
-It is sent only to Steam's Web API to request your owned games. It is not encrypted against
-other processes running as your Windows user. No key is shared with other users or included
-in the repository or release ZIPs. Legacy key files beside the EXE are no longer loaded;
-enter your key once through `k` instead. Do not distribute your user settings folder.
+The account is detected from Steam's local login metadata. Sign in to the intended Steam
+account and refresh before working with it.
 
-## Using achievements
+## Local data and privacy
 
-Choose a game, wait for its stats, then select a numbered achievement or type `all`.
-Unlocking all requires confirmation. `back` closes the game's worker and returns to the existing library menu.
-Steam must be running and the account must have access to the selected game.
-Some games manage achievements on their own servers or impose additional restrictions.
-Only Steam's asynchronous StoreStats confirmation reports whether a submitted update succeeded.
-Changes affect your Steam profile; select achievements deliberately.
+Settings live under `%LOCALAPPDATA%\SteamAchievementUnlocker\`:
 
-## Build from source
+- `web_api_key.txt`: your optional key, sent only to Steam's Web API for owned-game discovery.
+- `achievement-cache.json`: Store support metadata and names.
+- `library-state-*.json`: account-separated progress and excluded games.
+- `batch-*.json`: local batch results.
 
-Install the .NET 8 SDK on Windows, then run in this folder:
+The key is stored as text, not encrypted against other processes running as your Windows
+user. These settings, reports and credentials are excluded from source and release
+archives. Do not distribute your settings folder. No API key is bundled with the app.
+Demo mode uses sample data without reading an account or writing user settings.
+
+## Build and test
+
+Install the .NET 8 SDK on Windows:
 
 ```powershell
 dotnet restore -r win-x64 --locked-mode
@@ -100,23 +119,29 @@ dotnet run --project tests/SteamAchievementUnlocker.Tests.csproj -c Release
 ./scripts/Publish-Release.ps1
 ```
 
-The script produces the self-contained Windows ZIP, a clean source ZIP and SHA-256
-checksums under `artifacts/`. It validates the native DLL, runs an account-free smoke test,
-checks for personal configuration files and builds the source archive from an explicit allowlist.
-The project only publishes explicitly allowed content files.
+The release script creates self-contained Windows/source ZIPs and SHA-256 checksums
+under `artifacts/`, runs native DLL, desktop UI and worker protocol smoke tests,
+and rejects personal configuration in the staging folder.
 
-**Keep Steamworks.NET 20.2.0 and the included SDK 1.57 DLL together.**
-Replacing the native DLL with a random game's or newer SDK's DLL can cause
-`EntryPointNotFoundException: SteamAPI_Init`. The packaging script rejects a mismatched DLL.
+The EXE also accepts `--demo` for an account-free sample library, `--ui-self-test` for
+desktop behavior checks, and `--worker-self-test` for the account-free worker protocol test.
+The previous console interface remains available with `--console`; new desktop features
+are accessed through the graphical interface.
+
+**Keep Steamworks.NET 20.2.0 and the included SDK 1.57 DLL together.** Replacing the native
+DLL with an arbitrary game's or newer SDK's DLL can cause missing entry-point errors.
 
 ## Troubleshooting
 
-- **Missing DLL / runtime files:** extract the full Windows ZIP, keeping all files together.
-- **SteamAPI_Init missing:** use the matched native DLL from this release.
-- **Connection fails:** check Steam login and ownership/access to the selected game.
-- **Stats time out:** try starting the actual game once, then retry.
-- **A game is unexpectedly hidden:** press `f`; use `c` to discard cached metadata.
-- **Only installed games appear:** configure your own optional API key using `k`.
+- **Missing DLL/runtime:** extract the full Windows ZIP and keep all files together.
+- **No Steam access:** check Steam login and access to the selected game.
+- **Stats unavailable:** try starting the actual game once, then read progress again.
+- **Missing game:** check search, both filters and Excluded games; try Add AppID.
+- **Family game missing:** open your Steam library and refresh. Uncached games may not be discovered.
+- **Counts look old:** select the game and read progress again; refresh after switching accounts.
+- **Settings do not persist:** check write access to your Windows user settings folder.
 
-For repository and Release setup, see [GITHUB-PUBLISHING.md](GITHUB-PUBLISHING.md).
-See [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for component notices.
+See [GITHUB-PUBLISHING.md](GITHUB-PUBLISHING.md), [LICENSE](LICENSE) and
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Steam references: [access and Family Sharing](https://partner.steamgames.com/doc/api/ISteamApps),
+[stats and save callbacks](https://partner.steamgames.com/doc/api/ISteamUserStats).
