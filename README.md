@@ -1,21 +1,33 @@
-# Steam Achievement Unlocker v1.11.3
+# Steam Achievement Unlocker v2.0.0
 
 A portable Windows desktop application for browsing Steam games, reading achievement
 progress and unlocking selected achievements. The interface and documentation are in English.
 
-## Local v1.11.3 progress scan
+## Version 2.0.0
+
+This release brings together the improvements developed after v1.4.0. The version change itself does not change achievement behavior or reset user data.
+
+- Library-wide progress scanning, account-specific saved results, favorites and filtered views.
+- Windows user-protected API keys, separate saved/verified states and account checks around Steam writes.
+- Operation history, checkpoint recovery and last-readable settings backups.
+- Persistent game covers, download controls, game details, Steam global rarity and a replayable guided tour.
+- A true black desktop theme, consistent column headers and keyboard accessibility.
+
+Windows x64 only. This is a portable ZIP release, not an installer. macOS and Linux are not supported. Extract the full archive and keep `lib`, `docs` and `licenses` beside the EXE. No personal API key or user settings are included.
+
+## Development history: v1.11.3 progress scan
 
 **Scan library progress** in Game actions reads the active Main library or Family / cached library without requiring row selections or opening individual achievement windows. Choose unchecked/expired games or a full rescan, then review the batch. Search and progress/support filters do not restrict the scan; excluded games are skipped. The other library is not scanned implicitly.
 
 Results are saved and filters refresh after each game, including selected Read progress batches. Successful zero-achievement reads update achievement support; failed reads stay unknown, never zero. Stop after the current game, or review Resume pending after an interruption. Scans only send read requests; no achievements are changed. Steam must be running and may show you as in-game. Large libraries can take a long time, and family/cache candidates may be inaccessible.
 
-## Local v1.11.2 visual fixes
+## Development history: v1.11.2 visual fixes
 
 - Column headers retain their theme colors when cells or columns are clicked; Windows blue selection no longer colors the active column header in either game list or achievement browser.
 - Dark mode now uses a true black background. Tabs, collapsed dropdowns, input borders and the progress track render with the same palette instead of white native surfaces. Disabled buttons retain readable gray text. Light mode remains available.
 - Windows dark title bars and native scrollbars are requested where supported by the OS. Tab keyboard navigation and existing achievement selection behavior remain unchanged.
 
-## Local v1.11.1 reliability patch
+## Development history: v1.11.1 reliability patch
 
 - Steam session identity is checked before each achievement mutation, before StoreStats, during confirmation, and before reporting success. Stats callbacks must match the captured account. An account change stops the batch; a potentially completed write is recorded as uncertain.
 - Refresh invalidates the previous session, selections, retry list, results, details and journal binding before loading another account. A failed refresh cannot leave an actionable stale account behind. Operations require a fully loaded session.
@@ -30,7 +42,7 @@ From the source package, run `./scripts/Validate-Portable.ps1 -AppDirectory <abs
 
 These are synthetic account tests and process-isolation checks on the current Windows installation. They are not evidence of successful live account switching, a clean Windows VM, or real OS scaling changes. Real Steam operations and real Windows 150–200% display scaling remain separate acceptance checks. Do not run achievement changes merely to validate packaging. DPAPI protects saved keys for the Windows user; it does not protect against malware already running as that user.
 
-## Local v1.11.0 update
+## Development history: v1.11.0 update
 
 - **Game details:** a collapsible panel follows the selected row, showing cached cover, progress, source, last operation result and the three rarest known achievements. Public rarity loads only when requested; use Read progress to obtain achievement names. The panel never initiates Steam achievement reads or changes automatically. Toggle it in Library & history.
 - **Library changes:** an account-specific baseline records added games and retains entries not found in a later complete owned-library scan. Open Library changes to inspect them. Partial/offline scans never infer that a game is missing; not found is not proof of lost ownership. The first scan establishes a baseline.
@@ -38,9 +50,9 @@ These are synthetic account tests and process-isolation checks on the current Wi
 - **Private diagnostics:** Settings offers an exact read-only report preview before an optional local save. Only app/runtime version, bitness, theme, counts and state flags are included. Keys, Steam IDs, user/machine names, paths, game names, raw logs and exception messages are never supplied to the report builder. Nothing is uploaded automatically.
 - **Safer settings:** display and per-account library preferences now have a schema version, a readable backup and recovery notices. Legacy settings retain their values when upgraded. Rejected primaries are preserved before repair. Future versions are never overwritten; Steam operations are blocked if newer library preferences cannot be interpreted safely. Explicit reset actions keep exact preserved copies first. Resetting library preferences affects favorites, exclusions and cached counts, not Steam achievements or operation history.
 
-Inventory, preference backups and preserved files stay in your Windows user settings folder and are excluded from release archives. A display reset closes the app so the new defaults apply on the next launch. This release stays local only.
+Inventory, preference backups and preserved files stay in your Windows user settings folder and are excluded from release archives. A display reset closes the app so the new defaults apply on the next launch.
 
-## Local v1.10.0 update
+## Development history: v1.10.0 update
 
 - **First-run guided tour:** 11 English steps highlight real controls and explain library sources, account checks, selection, achievement reads/changes, covers, history and protected keys. Next/Back and Skip (Esc) are available. The owner window cannot start actions during the tour. Finish or skip once; replay from Settings, Library & history, or F1. This also appears once after updating from a version without the tour.
 - **Session details:** Settings identifies the account found in local Steam settings, library sources and last load time. Local account detection is not a live connection check; each achievement operation still checks account/access through Steam.
@@ -50,9 +62,9 @@ Inventory, preference backups and preserved files stay in your Windows user sett
 - **Cover cache tools:** Settings shows image count, disk usage and the most recent save time. Clear only cover images/missing-result records; downloads stay paused afterward. Right-click a game to reset/redownload one cover. Neither action touches credentials or operation history.
 - **Offline library:** after a successful owned-library request, an account-specific local snapshot lets you browse those entries when the Web API is unavailable. A persistent banner and Source labels mark snapshot entries as stale. Cached artwork works offline. Account access and successful saves still require Steam; snapshots never prove ownership.
 
-The offline snapshot contains game metadata, not an API key. Removing a saved key does not delete local library metadata. All settings, snapshots, favorites and caches stay outside release ZIPs. This version remains local only.
+The offline snapshot contains game metadata, not an API key. Removing a saved key does not delete local library metadata. All settings, snapshots, favorites and caches stay outside release ZIPs.
 
-## Local v1.9.0 update
+## Development history: v1.9.0 update
 
 - **API key security:** Windows current-user DPAPI storage; encrypted save/readback must succeed before replacing a key or deleting legacy plaintext. Failed migration never uses the plaintext key. Leftover legacy files are cleaned up only after successfully reading the protected key; cleanup failures are reported.
 - **Saved versus verified:** Settings separately shows storage and Steam verification for this session. Keys are masked, never prefilled, and removed through an explicit action. Verification happens only after a successful authenticated library response.
@@ -61,7 +73,7 @@ The offline snapshot contains game metadata, not an API key. Removing a saved ke
 - **Cover downloads:** unavailable artwork is remembered for seven days across restarts; transient errors use shorter cooldowns. Pause/resume downloads independently, and see cached/unavailable counts. Cached covers remain visible while paused.
 - **Navigation:** separate Library, History and Settings pages, a collapsible activity log, and scrollable layouts for smaller windows and higher scaling.
 
-## Local v1.8.0 update
+## Development history: v1.8.0 update
 
 - Rare achievements with a known Steam global rate of **5% or less** have neon borders: cyan above 1%, purple at 1% or below. A real 0% qualifies; unknown rates do not. The 2.4-second glow cycle never flashes on/off. Disable **Animations** for a static border. **Rare only** filters the achievement browser.
 - Game actions are grouped separately from **Library & history** tools.
@@ -69,7 +81,7 @@ The offline snapshot contains game metadata, not an API key. Removing a saved ke
 - New API keys use Windows DPAPI protection for the current Windows user. Legacy plaintext keys migrate after an encrypted save/readback succeeds; only then is the legacy copy removed. If migration cannot finish, the legacy file is kept and Settings reports that migration is pending. New saves never fall back to plaintext. Older versions cannot read the protected format; re-enter the key if returning to one.
 - A copied encrypted key file is not a portable credential backup. Re-enter your key on another Windows account or computer. The application must briefly decrypt the key to send an authorized Steam request; local encryption is not protection against software already acting as your Windows user.
 
-## Local v1.7.0 update
+## Development history: v1.7.0 update
 
 - **Batch review:** both progress reads and unlock batches show the exact games before starting. Uncheck games to remove them. Locked counts are labeled as cached or unknown; unlock batches still require `UNLOCK ALL`.
 - **History:** search the last 2,000 account-specific entries. Read, Confirmed, No changes, Failed, Uncertain, and Stopped are distinct outcomes. No API keys are recorded.
@@ -82,7 +94,7 @@ History and pending batches live in your Windows user settings as `operations-<a
 
 ## Download and run
 
-1. Use the locally supplied **SteamAchievementUnlocker-win-x64.zip**. This v1.11.3 build has not been uploaded to GitHub.
+1. Open [Releases](https://github.com/Rejixter/SteamAchievementUnlocker/releases) and download **SteamAchievementUnlocker-win-x64.zip**.
 2. Extract the **entire ZIP** to a writable folder. Keep `lib`, `docs`, and `licenses` beside the EXE.
 3. Open Steam, sign in and run **SteamAchievementUnlocker.exe**. A desktop window opens; no console commands are needed.
 
@@ -227,7 +239,7 @@ The Windows package includes license notices in `../licenses/`.
 Source packages also include `GITHUB-PUBLISHING.md`, `LICENSE` and `THIRD-PARTY-NOTICES.md`.
 Steam references: [access and Family Sharing](https://partner.steamgames.com/doc/api/ISteamApps),
 [stats and save callbacks](https://partner.steamgames.com/doc/api/ISteamUserStats).
-## Local v1.7.0 quality-of-life update
+## Development history: v1.7.0 quality-of-life update
 
 ### Steam artwork and motion
 

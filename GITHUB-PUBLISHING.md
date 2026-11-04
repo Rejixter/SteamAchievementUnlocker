@@ -24,7 +24,7 @@ debug symbols and private credentials out of the repository and release assets.
 ## Publish on GitHub
 
 1. Merge the tested version change into the default branch.
-2. Open **Releases → Draft a new release** and create a new version tag, such as `v1.4.0`.
+2. Open **Releases → Draft a new release** and create a new version tag, such as `v2.0.0`.
 3. Write the release notes in English and publish. GitHub Actions tests the source,
    builds the application and attaches the Windows ZIP, source ZIP and checksums.
 4. Wait for all release workflows to finish, then download and verify the assets.

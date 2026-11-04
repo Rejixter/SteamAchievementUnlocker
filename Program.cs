@@ -56,7 +56,7 @@ if (args.Contains("--self-test"))
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 using var metadataHttp = new System.Net.Http.HttpClient();
-metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.11.3");
+metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/2.0.0");
 var catalog = new AchievementCatalog(metadataHttp, Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json"));
 bool hideWithoutAchievements = true;
 bool showCachedLibrary = false;
@@ -87,7 +87,7 @@ async Task RunMainMenu()
     while (true)
     {
         Console.Clear();
-        Console.WriteLine("=== Steam Achievement Unlocker v1.11.3 (console mode) ===\n");
+        Console.WriteLine("=== Steam Achievement Unlocker v2.0.0 (console mode) ===\n");
         mainLibrary ??= await GetGamesListAsync();
         if (showCachedLibrary)
             cachedLibrary ??= SteamLibraryScanner.GetAdditionalCachedGames(mainLibrary, SteamLibraryScanner.GetCachedLibraryGames());

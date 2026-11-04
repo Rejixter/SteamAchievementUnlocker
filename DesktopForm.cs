@@ -100,9 +100,9 @@ public sealed partial class DesktopForm : Form
         _demo = demo;
         _preferences = demo ? new() : DesktopPreferences.Load(_preferencesPath);
         _artwork = new(_http, Path.Combine(UserSettings.DirectoryPath, "artwork-cache"));
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.11.3");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/2.0.0");
         _catalog = new(_http, demo ? Path.Combine(Path.GetTempPath(), "sau-demo-unused-" + Guid.NewGuid() + ".json") : Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json"));
-        Text = "Steam Achievement Unlocker v1.11.3" + (demo ? " — DEMO (no Steam connection)" : "");
+        Text = "Steam Achievement Unlocker v2.0.0" + (demo ? " — DEMO (no Steam connection)" : "");
         Font = new Font("Segoe UI", 10);
         BackColor = Color.FromArgb(246, 247, 251);
         StartPosition = FormStartPosition.CenterScreen;
@@ -138,7 +138,7 @@ public sealed partial class DesktopForm : Form
         var title = new Label { Text = "Steam Achievement Unlocker", Font = new Font("Segoe UI", 21, FontStyle.Bold), AutoSize = true, ForeColor = Color.FromArgb(31, 36, 55) };
         var heading = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
         heading.Controls.Add(title);
-        heading.Controls.Add(new Label { Text = demo ? "DEMO · Sample games only · Steam is never initialized" : "Your library. Your selection. Confirmed results.   /   v1.11.3", AutoSize = true, ForeColor = Color.DimGray });
+        heading.Controls.Add(new Label { Text = demo ? "DEMO · Sample games only · Steam is never initialized" : "Your library. Your selection. Confirmed results.   /   v2.0.0", AutoSize = true, ForeColor = Color.DimGray });
         header.Controls.Add(heading, 0, 0);
         var topActions = Flow();
         topActions.Controls.Add(ActionButton("Refresh library", async () => await RefreshLibrary()));
