@@ -1,11 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\SteamWriteGuard.cs" Link="SteamWriteGuard.cs" />
+    <Compile Include="..\SettingsFile.cs" Link="SettingsFile.cs" />
+    <Compile Include="..\LibraryInventory.cs" Link="LibraryInventory.cs" />
+    <Compile Include="..\DiagnosticReport.cs" Link="DiagnosticReport.cs" />
+    <Compile Include="..\LibrarySnapshot.cs" Link="LibrarySnapshot.cs" />
+    <Compile Include="..\CredentialStore.cs" Link="CredentialStore.cs" />
+    <Compile Include="..\OwnedLibrary.cs" Link="OwnedLibrary.cs" />
+    <Compile Include="..\RarityStyle.cs" Link="RarityStyle.cs" />
+    <Compile Include="..\CredentialVault.cs" Link="CredentialVault.cs" />
+    <Compile Include="..\OperationJournal.cs" Link="OperationJournal.cs" />
+    <Compile Include="..\GlobalAchievements.cs" Link="GlobalAchievements.cs" />
+    <Compile Include="..\SteamArtwork.cs" Link="SteamArtwork.cs" />
+    <Compile Include="..\DesktopPreferences.cs" Link="DesktopPreferences.cs" />
     <Compile Include="..\LibraryState.cs" Link="LibraryState.cs" />
     <Compile Include="..\BatchRunner.cs" Link="BatchRunner.cs" />
     <Compile Include="..\AchievementCatalog.cs" Link="AchievementCatalog.cs" />

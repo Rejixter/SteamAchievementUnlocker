@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace SteamAchievementUnlocker;
 
-public record AchievementInfo(string ApiName, string DisplayName, bool Unlocked);
+public record AchievementInfo(string ApiName, string DisplayName, bool Unlocked, string Description = "", byte[]? IconPng = null);
 public record GameProgress(int Unlocked, int Total, DateTimeOffset CheckedAt)
 {
     public bool IsValid => Total >= 0 && Unlocked >= 0 && Unlocked <= Total;
@@ -15,8 +15,13 @@ public record GameProgress(int Unlocked, int Total, DateTimeOffset CheckedAt)
 
 public sealed class LibraryState
 {
+    public int SchemaVersion { get; set; } = SettingsFile.CurrentVersion;
+    [System.Text.Json.Serialization.JsonIgnore] public string? RecoveryNotice { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore] public bool ReadOnly { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore] public bool PreserveOriginal { get; set; }
     public Dictionary<uint, SteamGame> Excluded { get; set; } = new();
     public Dictionary<uint, GameProgress> Progress { get; set; } = new();
+    public HashSet<uint> Favorites { get; set; } = new();
 
     public static string PathForAccount(string directory, ulong account) => Path.Combine(directory,
         "library-state-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(account.ToString())))[..24] + ".json");
@@ -25,10 +30,11 @@ public sealed class LibraryState
     {
         try
         {
-            var result = File.Exists(path) ? JsonSerializer.Deserialize<LibraryState>(File.ReadAllText(path)) : null;
-            if (result is null) return new();
+            var loaded = SettingsFile.Load<LibraryState>(path); var result = loaded.Value;
+            result.SchemaVersion = SettingsFile.CurrentVersion; result.RecoveryNotice = loaded.Notice; result.ReadOnly = loaded.ReadOnly; result.PreserveOriginal = loaded.PreserveOriginal;
             result.Excluded = (result.Excluded ?? new()).Where(p => p.Key > 0 && p.Value is not null && p.Value.AppId == p.Key).ToDictionary();
             result.Progress = (result.Progress ?? new()).Where(p => p.Key > 0 && p.Value is not null && p.Value.IsValid).ToDictionary();
+            result.Favorites = (result.Favorites ?? new()).Where(id => id > 0).ToHashSet();
             return result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return new(); }
@@ -36,10 +42,7 @@ public sealed class LibraryState
 
     public void Save(string path)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try { File.WriteAllText(temp, JsonSerializer.Serialize(this)); File.Move(temp, path, true); }
-        finally { if (File.Exists(temp)) File.Delete(temp); }
+        SettingsFile.Save(path, this, ReadOnly, PreserveOriginal); PreserveOriginal = false;
     }
 
     public void Record(uint appId, IReadOnlyList<AchievementInfo> achievements) =>
@@ -57,4 +60,10 @@ public sealed class LibraryState
     // Always intersect with the visible list: hidden selections must never be submitted.
     public static List<SteamGame> SelectedVisible(IEnumerable<SteamGame> visible, ISet<uint> checkedIds) =>
         visible.Where(g => checkedIds.Contains(g.AppId)).DistinctBy(g => g.AppId).ToList();
+
+    // Scan the active library itself, independently of filters, search and checkboxes.
+    public List<SteamGame> ProgressScan(IEnumerable<SteamGame> library, bool refreshAll) => library
+        .Where(g => g.AppId > 0 && !Excluded.ContainsKey(g.AppId))
+        .Where(g => refreshAll || !Progress.TryGetValue(g.AppId, out var p) || !p.IsFresh)
+        .DistinctBy(g => g.AppId).ToList();
 }

@@ -4,9 +4,19 @@ namespace SteamAchievementUnlocker;
 
 public static class SteamRuntime
 {
+    private static string NativePath => File.Exists(Path.Combine(AppContext.BaseDirectory, "lib", "steam_api64.dll"))
+        ? Path.Combine(AppContext.BaseDirectory, "lib", "steam_api64.dll")
+        : Path.Combine(AppContext.BaseDirectory, "steam_api64.dll");
+
+    static SteamRuntime()
+    {
+        NativeLibrary.SetDllImportResolver(typeof(Steamworks.SteamAPI).Assembly, (name, assembly, searchPath) =>
+            name is "steam_api64" or "steam_api64.dll" ? NativeLibrary.Load(NativePath) : 0);
+    }
+
     public static bool ValidateNativeLibrary(out string diagnostic)
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "steam_api64.dll");
+        string path = NativePath;
         nint handle = 0;
         try
         {
@@ -18,7 +28,9 @@ public static class SteamRuntime
                     diagnostic = $"Incompatible steam_api64.dll: missing {export}. Restore the DLL from Steamworks.NET Standalone 20.2.0 (Windows-x64), then rebuild or re-extract the complete release ZIP.";
                     return false;
                 }
-            diagnostic = "OK: 64-bit process; Steam SDK 1.57 entry points present. Steam was not initialized and no achievements were changed.";
+            // Exercise the actual Steamworks.NET import resolver without initializing Steam.
+            _ = Steamworks.SteamAPI.IsSteamRunning();
+            diagnostic = "OK: 64-bit process; Steam SDK 1.57 entry points and managed import resolver verified. Steam was not initialized and no achievements were changed.";
             return true;
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException)

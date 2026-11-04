@@ -5,15 +5,30 @@ namespace SteamAchievementUnlocker;
 public static class UserSettings
 {
     // User data deliberately lives outside both the checkout and portable release.
-    public static string DirectoryPath => Path.Combine(
+    private static string? _testDirectory;
+    public static string DirectoryPath => _testDirectory ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "SteamAchievementUnlocker");
     public static string KeyPath => Path.Combine(DirectoryPath, "web_api_key.txt");
+    public static string ProtectedKeyPath => Path.Combine(DirectoryPath, "web_api_key.dat");
+    private static CredentialStore? _store;
+    private static CredentialStore Store => _store ??= new(DirectoryPath);
+    internal static void UseFreshTestDirectory(string directory)
+    {
+        if (_store is not null || Directory.Exists(directory)) throw new InvalidOperationException("Self-test requires a fresh settings scope.");
+        Directory.CreateDirectory(directory); _testDirectory = directory;
+    }
+    public static bool HasSavedKey => Store.Exists;
+    public static string? KeyReadError => Store.Error;
+    public static string StorageStatus => Store.Status;
 
     public static string ReadApiKey()
     {
-        try { return File.Exists(KeyPath) ? File.ReadAllText(KeyPath).Trim() : ""; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return ""; }
+        return Store.Read();
+    }
+    public static void SaveApiKey(string value)
+    {
+        Store.Save(value);
     }
 
     public static bool IsValidApiKey(string key) => Regex.IsMatch(key, "\\A[0-9a-fA-F]{32}\\z");
@@ -21,7 +36,7 @@ public static class UserSettings
     public static void ConfigureApiKey()
     {
         Console.WriteLine("\nOptional: your own Steam Web API key enables the full owned library.");
-        Console.WriteLine("Stored only in your Windows user folder. Input is hidden.");
+        Console.WriteLine("Encrypted for your Windows user account. Input is hidden.");
         Console.WriteLine("Paste a key and press Enter, or press Enter without a key to remove it.");
         Console.Write("Key: ");
         var input = new System.Text.StringBuilder();
@@ -43,11 +58,10 @@ public static class UserSettings
         try
         {
             Directory.CreateDirectory(DirectoryPath);
-            if (value.Length == 0) File.Delete(KeyPath);
-            else File.WriteAllText(KeyPath, value);
+            SaveApiKey(value);
             Console.WriteLine(value.Length == 0 ? "Key removed. Installed-games mode enabled." : "Key saved in your Windows user folder.");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
         {
             Console.WriteLine("Couldn't save settings. Check access to your Windows user folder.");
         }

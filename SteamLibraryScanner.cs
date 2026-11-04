@@ -108,36 +108,8 @@ public static class SteamLibraryScanner
     /// </summary>
     public static async Task<List<SteamGame>?> TryGetOwnedGamesAsync(string apiKey, ulong steamId64)
     {
-        try
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            string url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/" +
-                         $"?key={Uri.EscapeDataString(apiKey)}&steamid={steamId64}&format=json" +
-                         "&include_appinfo=1&include_played_free_games=1";
-
-            string json = await http.GetStringAsync(url);
-            using var doc = JsonDocument.Parse(json);
-
-            if (!doc.RootElement.TryGetProperty("response", out var response) ||
-                !response.TryGetProperty("games", out var gamesArray))
-            {
-                return null;
-            }
-
-            var result = new List<SteamGame>();
-            foreach (var g in gamesArray.EnumerateArray())
-            {
-                uint appId = (uint)g.GetProperty("appid").GetInt64();
-                string name = g.TryGetProperty("name", out var n) ? (n.GetString() ?? $"AppID {appId}") : $"AppID {appId}";
-                result.Add(new SteamGame(appId, name, IsInstalled: false));
-            }
-
-            return result;
-        }
-        catch
-        {
-            return null;
-        }
+        using var http = OwnedLibrary.CreateClient();
+        return (await OwnedLibrary.FetchAsync(http, apiKey, steamId64)).Games;
     }
 
     public static string? GetSteamInstallPath()

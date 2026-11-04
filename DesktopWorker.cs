@@ -41,17 +41,18 @@ public static class DesktopWorker
     private static DesktopResult Execute(uint id, DesktopRequest request)
     {
         if (!SteamRuntime.ValidateNativeLibrary(out _)) return new(id, false, "Native Steam DLL is missing or incompatible. Extract the full release ZIP.");
-        using var steam = new SteamStatsManager(id);
-        if (!steam.Init()) return new(id, false, "No Steam access / connection failed.");
+        using var steam = new SteamStatsManager(id, request.ExpectedAccount);
+        if (!steam.Init()) return new(id, false, steam.SessionChanged ? "Steam account changed. Refresh the library before continuing." : "No Steam access / connection failed.");
         if (SteamUser.GetSteamID().m_SteamID != request.ExpectedAccount)
             return new(id, false, "Steam account changed. Refresh the library before continuing.");
         var timer = Stopwatch.StartNew();
-        while (!steam.StatsLoaded && !steam.StatsFailed && timer.Elapsed < TimeSpan.FromSeconds(20))
+        while (!steam.StatsLoaded && !steam.StatsFailed && steam.IsSameSession && timer.Elapsed < TimeSpan.FromSeconds(20))
         { steam.RunCallbacks(); Thread.Sleep(100); }
-        if (!steam.StatsLoaded) return new(id, false, "Steam stats unavailable. Try launching the game once.");
+        if (!steam.StatsLoaded) return new(id, false, steam.SessionChanged ? "Steam account changed. Refresh the library before continuing." : "Steam stats unavailable. Try launching the game once.");
         if (!SteamUser.BLoggedOn() || SteamUser.GetSteamID().m_SteamID != request.ExpectedAccount)
             return new(id, false, "Steam account changed. Refresh the library before continuing.");
-        var achievements = steam.ListAchievements().Select(a => new AchievementInfo(a.ApiName, a.DisplayName, a.Unlocked)).ToList();
+        var achievements = ReadAchievements(steam);
+        if (!steam.IsSameSession) return new(id, false, "Steam account changed. Refresh the library before continuing.");
         if (request.Operation == "read") return new(id, true, "Progress read", achievements);
         var selected = request.AchievementNames?.ToHashSet(StringComparer.Ordinal) ?? new();
         if (request.Operation == "unlock" && (selected.Count == 0 || selected.Any(name => achievements.All(a => a.ApiName != name))))
@@ -59,8 +60,25 @@ public static class DesktopWorker
         var locked = achievements.Where(a => !a.Unlocked && (request.Operation == "unlock-all" || selected.Contains(a.ApiName))).ToList();
         if (locked.Count == 0) return new(id, true, achievements.Count == 0 ? "No achievements" : "Already complete", achievements);
         if (!steam.UnlockAll(locked.Select(a => a.ApiName)))
-            return new(id, false, "Save failed or unconfirmed. Read progress again before retrying.");
-        return new(id, true, "Confirmed by Steam", steam.ListAchievements().Select(a => new AchievementInfo(a.ApiName, a.DisplayName, a.Unlocked)).ToList());
+            return new(id, false, steam.SessionChanged ? "Steam account changed. Outcome unknown; read progress before retrying." : "Save failed or unconfirmed. Read progress again before retrying.");
+        var confirmed = ReadAchievements(steam);
+        return steam.IsSameSession ? new(id, true, "Confirmed by Steam", confirmed) : new(id, false, "Steam account changed. Outcome unknown; read progress before retrying.");
+    }
+
+    private static List<AchievementInfo> ReadAchievements(SteamStatsManager steam) => steam.ListAchievements().Select(a =>
+        new AchievementInfo(a.ApiName, a.DisplayName, a.Unlocked, SteamUserStats.GetAchievementDisplayAttribute(a.ApiName, "desc"), ReadIcon(a.ApiName))).ToList();
+    private static byte[]? ReadIcon(string name)
+    {
+        int id = SteamUserStats.GetAchievementIcon(name);
+        if (id <= 0 || !SteamUtils.GetImageSize(id, out uint width, out uint height) || width == 0 || height == 0 || width > 128 || height > 128) return null;
+        var bytes = new byte[checked((int)(width * height * 4))];
+        if (!SteamUtils.GetImageRGBA(id, bytes, bytes.Length)) return null;
+        for (int i = 0; i < bytes.Length; i += 4) (bytes[i], bytes[i + 2]) = (bytes[i + 2], bytes[i]);
+        using var image = new System.Drawing.Bitmap((int)width, (int)height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var data = image.LockBits(new System.Drawing.Rectangle(0, 0, image.Width, image.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        try { System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length); }
+        finally { image.UnlockBits(data); }
+        using var stream = new MemoryStream(); image.Save(stream, System.Drawing.Imaging.ImageFormat.Png); return stream.ToArray();
     }
 
     public static async Task<DesktopResult> StartAsync(uint appId, DesktopRequest request)

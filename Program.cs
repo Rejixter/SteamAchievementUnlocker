@@ -6,6 +6,22 @@ using System.Linq;
 using System.Threading;
 using SteamAchievementUnlocker;
 
+if (args.SequenceEqual(new[] { "--acceptance-self-test" }))
+{
+    string testRoot = Path.Combine(Path.GetTempPath(), "sau-acceptance-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        UserSettings.UseFreshTestDirectory(testRoot);
+        DesktopForm.Run(true, true, acceptance: true);
+    }
+    finally
+    {
+        string full = Path.GetFullPath(testRoot);
+        if (Path.GetDirectoryName(full) == Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) && Path.GetFileName(full).StartsWith("sau-acceptance-", StringComparison.Ordinal) && Directory.Exists(full)) Directory.Delete(full, true);
+    }
+    return;
+}
+
 if (args.SequenceEqual(new[] { "--worker-self-test" }))
 {
     var result = await DesktopWorker.StartAsync(10, new(0, "read"));
@@ -40,7 +56,7 @@ if (args.Contains("--self-test"))
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 using var metadataHttp = new System.Net.Http.HttpClient();
-metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.4.0");
+metadataHttp.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/1.11.3");
 var catalog = new AchievementCatalog(metadataHttp, Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json"));
 bool hideWithoutAchievements = true;
 bool showCachedLibrary = false;
@@ -71,7 +87,7 @@ async Task RunMainMenu()
     while (true)
     {
         Console.Clear();
-        Console.WriteLine("=== Steam Achievement Unlocker v1.4.0 (console mode) ===\n");
+        Console.WriteLine("=== Steam Achievement Unlocker v1.11.3 (console mode) ===\n");
         mainLibrary ??= await GetGamesListAsync();
         if (showCachedLibrary)
             cachedLibrary ??= SteamLibraryScanner.GetAdditionalCachedGames(mainLibrary, SteamLibraryScanner.GetCachedLibraryGames());

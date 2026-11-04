@@ -24,10 +24,21 @@ public class SteamStatsManager : IDisposable
     private Callback<UserStatsReceived_t>? _statsReceivedCallback;
     private Callback<UserStatsStored_t>? _statsStoredCallback;
     private bool _initialized;
+    private ulong _sessionAccount;
+    private readonly ulong _expectedAccount;
+    public bool SessionChanged { get; private set; }
+    public bool IsSameSession => SameSession();
+    private bool SameSession()
+    {
+        bool same = _initialized && _sessionAccount != 0 && SteamUser.BLoggedOn() && SteamUser.GetSteamID().m_SteamID == _sessionAccount && SteamUtils.GetAppID().m_AppId == AppId;
+        if (!same) SessionChanged = true;
+        return same;
+    }
 
-    public SteamStatsManager(uint appId)
+    public SteamStatsManager(uint appId, ulong expectedAccount = 0)
     {
         AppId = appId;
+        _expectedAccount = expectedAccount;
 
         // Steam decides "which app is this process" from this file, read at
         // SteamAPI_Init() time. It has to sit next to the executable — NOT
@@ -68,6 +79,8 @@ public class SteamStatsManager : IDisposable
             Console.WriteLine("Steam did not grant access to the requested game.");
             return false;
         }
+        _sessionAccount = SteamUser.GetSteamID().m_SteamID;
+        if (_expectedAccount != 0 && _sessionAccount != _expectedAccount) { SessionChanged = true; return false; }
         if (SteamApps.BIsSubscribedFromFamilySharing()) Console.WriteLine("Using Steam Family Sharing access.");
         _statsReceivedCallback = Callback<UserStatsReceived_t>.Create(OnUserStatsReceived);
         _statsStoredCallback = Callback<UserStatsStored_t>.Create(OnUserStatsStored);
@@ -87,6 +100,7 @@ public class SteamStatsManager : IDisposable
     {
         if (cb.m_nGameID != AppId)
             return; // stats for some other app currently loaded — ignore
+        if (cb.m_steamIDUser.m_SteamID != _sessionAccount || !SameSession()) { StatsFailed = true; SessionChanged = true; return; }
 
         if (cb.m_eResult != EResult.k_EResultOK)
         {
@@ -131,7 +145,7 @@ public class SteamStatsManager : IDisposable
     /// </summary>
     public bool Unlock(string apiName)
     {
-        if (!StatsLoaded)
+        if (!StatsLoaded || !SameSession())
         {
             Console.WriteLine("Stats haven't finished loading yet — wait a moment and try again.");
             return false;
@@ -153,35 +167,25 @@ public class SteamStatsManager : IDisposable
     /// </summary>
     public bool UnlockAll(IEnumerable<string> apiNames)
     {
-        if (!StatsLoaded)
+        if (!StatsLoaded || !SameSession())
         {
             Console.WriteLine("Stats haven't finished loading yet — wait a moment and try again.");
             return false;
         }
 
-        bool allSetOk = true;
-        foreach (string apiName in apiNames)
-        {
-            if (!SteamUserStats.SetAchievement(apiName))
-            {
-                Console.WriteLine($"SetAchievement('{apiName}') returned false — skipping it.");
-                allSetOk = false;
-            }
-        }
-
-        bool stored = StoreAndWait();
-        return allSetOk && stored;
+        return SteamWriteGuard.Run(apiNames, SameSession, SteamUserStats.SetAchievement, StoreAndWait);
     }
 
     private bool StoreAndWait()
     {
         _storeResult = null;
+        if (!SameSession()) return false;
         if (!SteamUserStats.StoreStats()) return false;
         var timer = System.Diagnostics.Stopwatch.StartNew();
         while (_storeResult is null && timer.Elapsed < TimeSpan.FromSeconds(20))
-        { RunCallbacks(); System.Threading.Thread.Sleep(100); }
+        { if (!SameSession()) return false; RunCallbacks(); System.Threading.Thread.Sleep(100); }
         if (_storeResult is null) Console.WriteLine("StoreStats confirmation timed out; outcome unknown.");
-        return _storeResult == EResult.k_EResultOK;
+        return SameSession() && _storeResult == EResult.k_EResultOK;
     }
 
     public void Dispose()
