@@ -56,11 +56,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          $windowsZip = "artifacts/SteamAchievementUnlocker-win-x64-$env:RELEASE_TAG.zip"
+          $sourceZip = "artifacts/SteamAchievementUnlocker-source-$env:RELEASE_TAG.zip"
+          foreach ($asset in @($windowsZip, $sourceZip, 'artifacts/SHA256SUMS.txt')) {
+            if (!(Test-Path -LiteralPath $asset)) { throw 'Release tag does not match the packaged application version, or an asset is missing.' }
+          }
           gh release view "$env:RELEASE_TAG" *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload "$env:RELEASE_TAG" artifacts/SteamAchievementUnlocker-win-x64.zip artifacts/SteamAchievementUnlocker-source.zip artifacts/SHA256SUMS.txt --clobber
+            gh release upload "$env:RELEASE_TAG" "$windowsZip" "$sourceZip" artifacts/SHA256SUMS.txt --clobber
           } else {
-            gh release create "$env:RELEASE_TAG" artifacts/SteamAchievementUnlocker-win-x64.zip artifacts/SteamAchievementUnlocker-source.zip artifacts/SHA256SUMS.txt --verify-tag --generate-notes --title "Steam Achievement Unlocker $env:RELEASE_TAG"
+            gh release create "$env:RELEASE_TAG" "$windowsZip" "$sourceZip" artifacts/SHA256SUMS.txt --verify-tag --generate-notes --title "Steam Achievement Unlocker $env:RELEASE_TAG"
           }
           if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed.' }
 
