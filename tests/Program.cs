@@ -418,6 +418,48 @@ try
     Check(scanState.ProgressScan(new[] { new SteamGame(99, "Family", false, true) }, true).Single().AppId == 99, "Family scan stays in its own active library");
     scanState.Record(4, new List<AchievementInfo> { new("DONE", "Done", true) });
     Check(!scanState.Filter(scanGames, "", true, false).Any(g => g.AppId == 4), "Scanning completed progress immediately enables the hide-completed filter");
+    using (var trusted = NativeDllPolicy.OpenVerified(Path.Combine("lib", "steam_api64.dll"))) Check(trusted.Length > 0, "Trusted Steam DLL passes pre-load identity verification");
+    string alteredDll = Path.Combine(scratch, "modified-steam.dll"); var dllBytes = File.ReadAllBytes(Path.Combine("lib", "steam_api64.dll")); dllBytes[^1] ^= 1; File.WriteAllBytes(alteredDll, dllBytes);
+    bool modifiedRejected = false; try { using var unexpected = NativeDllPolicy.OpenVerified(alteredDll); } catch (BadImageFormatException) { modifiedRejected = true; }
+    Check(modifiedRejected, "Modified Steam DLL is rejected before any native load");
+    using (var publicHandler = PublicSteamHttp.CreateHandler()) Check(!publicHandler.AllowAutoRedirect && !publicHandler.UseCookies && publicHandler.ServerCertificateCustomValidationCallback is null, "Public Steam transport blocks redirects and cookies without bypassing TLS validation");
+    using (var oversized = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[1025]) })
+    {
+        bool limitRejected = false; try { await PublicSteamHttp.ReadBoundedAsync(oversized, 1024, CancellationToken.None); } catch (IOException) { limitRejected = true; }
+        Check(limitRejected, "Oversized Content-Length is rejected before response buffering");
+    }
+    using (var lying = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[1025]) })
+    {
+        lying.Content.Headers.ContentLength = 1; bool bodyRejected = false;
+        try { await PublicSteamHttp.ReadBoundedAsync(lying, 1024, CancellationToken.None); } catch (IOException) { bodyRejected = true; }
+        Check(bodyRejected, "Actual streamed size is bounded even with a false Content-Length");
+    }
+    string nullCachePath = Path.Combine(scratch, "null-support.json"); File.WriteAllText(nullCachePath, "{\"10\":null}");
+    var nullCatalog = new AchievementCatalog(artworkHttp, nullCachePath); Check(nullCatalog.GetSupport(10) == AchievementSupport.Unknown && nullCatalog.GetName(10) is null, "Null cached support entries cannot crash catalog access");
+    using var excessiveHttp = new HttpClient(new FakeHandler(_ => new(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[512 * 1024 + 1]) }));
+    var excessiveCatalog = new AchievementCatalog(excessiveHttp, Path.Combine(scratch, "excessive-store.json"), TimeSpan.Zero);
+    await excessiveCatalog.RefreshAsync(new[] { new SteamGame(10, "Sample", false) }, null, CancellationToken.None);
+    Check(excessiveCatalog.GetSupport(10) == AchievementSupport.Unknown, "Oversized Store metadata remains unknown instead of hiding the game");
+    if (dpapiAvailable)
+    {
+        string realVaultDir = Path.Combine(scratch, "real-vault"); Directory.CreateDirectory(realVaultDir); var realStore = new CredentialStore(realVaultDir);
+        realStore.Save(new string('b', 32)); byte[] sealedBytes = File.ReadAllBytes(realStore.ProtectedPath); sealedBytes[sealedBytes.Length / 2] ^= 0x20; File.WriteAllBytes(realStore.ProtectedPath, sealedBytes);
+        File.WriteAllText(realStore.LegacyPath, new string('c', 32));
+        Check(realStore.Read() == "" && realStore.Error is not null && File.Exists(realStore.LegacyPath), "Real DPAPI tamper rejection does not fall back to remaining plaintext");
+    }
+    var iconCache = new AchievementIconCache(Path.Combine(scratch, "achievement-icons"));
+    byte[] iconPng; using (var iconImage = new System.Drawing.Bitmap(64, 64)) using (var iconBytes = new MemoryStream()) { iconImage.Save(iconBytes, System.Drawing.Imaging.ImageFormat.Png); iconPng = iconBytes.ToArray(); }
+    iconCache.Save(10, "SAME", false, iconPng);
+    Check(iconCache.Read(10, "SAME", false)?.SequenceEqual(iconPng) == true, "Achievement icon persists and is returned without another download");
+    Check(new AchievementIconCache(Path.Combine(scratch, "achievement-icons")).Read(10, "SAME", false) is not null, "Achievement icons survive cache-object restart");
+    Check(iconCache.Read(10, "SAME", true) is null && iconCache.Read(11, "SAME", false) is null, "Icon cache separates locked/unlocked state and game IDs");
+    string traversalIcon = iconCache.PathFor(10, "../../private/file", false);
+    Check(Path.GetFullPath(traversalIcon).StartsWith(Path.GetFullPath(Path.Combine(scratch, "achievement-icons")) + Path.DirectorySeparatorChar) && !Path.GetFileName(traversalIcon).Contains(".."), "Untrusted achievement names cannot escape the icon cache");
+    Check(!AchievementIconCache.Valid(new byte[131073]) && !AchievementIconCache.Valid(new byte[4]), "Oversized and malformed icon data are rejected");
+    Check(!AchievementIconCache.Valid(iconPng[..33]), "A truncated PNG with a valid-looking header cannot block icon refetch");
+    iconCache.Save(10, "BAD", false, new byte[4]); Check(iconCache.Read(10, "BAD", false) is null, "Invalid icon bytes are never cached");
+    File.WriteAllText(iconCache.PathFor(10, "SAME", false), "corrupt"); Check(iconCache.Read(10, "SAME", false) is null, "Corrupt cached icon remains eligible for refetch");
+    Check(GlobalAchievements.ReadCached(620, globalPath).GetValueOrDefault("FIRST") == 25.2, "Fresh global rates are available synchronously before first paint");
     bool realArtworkSample = args.Length == 2 && args[0] == "--artwork-sample";
     if (args.SequenceEqual(new[] { "--artwork-live-test" }) || realArtworkSample)
     {

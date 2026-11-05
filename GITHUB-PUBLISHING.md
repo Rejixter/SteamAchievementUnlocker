@@ -1,6 +1,6 @@
 # Publishing a release
 
-The ready-to-run application is **SteamAchievementUnlocker-win-x64.zip**.
+The ready-to-run application is **SteamAchievementUnlocker-win-x64-v2.1.0.zip**.
 GitHub's **Code → Download ZIP** contains source code instead.
 
 ## Validate and package
@@ -13,7 +13,7 @@ dotnet run --project tests/SteamAchievementUnlocker.Tests.csproj -c Release
 ```
 
 The script creates a self-contained Windows archive, an allowlisted source archive,
-and SHA256SUMS.txt in `artifacts/`. It runs native DLL, desktop UI and worker protocol
+and SHA256SUMS.txt in `artifacts/`. ZIP filenames include the project version, for example `SteamAchievementUnlocker-win-x64-v2.1.0.zip`. The release tag must match that version (`v2.1.0`); the workflow refuses to publish mismatched assets. It runs native DLL, desktop UI and worker protocol
 smoke tests without initializing a Steam account or changing achievements.
 
 Review the source and archives before publishing. Keep personal API keys, Steam
@@ -24,7 +24,7 @@ debug symbols and private credentials out of the repository and release assets.
 ## Publish on GitHub
 
 1. Merge the tested version change into the default branch.
-2. Open **Releases → Draft a new release** and create a new version tag, such as `v2.0.0`.
+2. Open **Releases → Draft a new release** and create a new version tag, such as `v2.1.0`.
 3. Write the release notes in English and publish. GitHub Actions tests the source,
    builds the application and attaches the Windows ZIP, source ZIP and checksums.
 4. Wait for all release workflows to finish, then download and verify the assets.

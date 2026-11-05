@@ -4,6 +4,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$projectXml = [xml](Get-Content -LiteralPath (Join-Path $repoRoot 'SteamAchievementUnlocker.csproj') -Raw)
+$appVersion = $projectXml.SelectSingleNode('/Project/PropertyGroup/Version').InnerText
+if ($appVersion -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid application version for release filenames.' }
+
 if (!$OutputDirectory) { $OutputDirectory = Join-Path $repoRoot 'artifacts' }
 $destination = [IO.Path]::GetFullPath($OutputDirectory)
 $stagingRoot = Join-Path $repoRoot 'artifacts'
@@ -75,7 +79,7 @@ Personal settings stay in your Windows user profile.
 
 
     # Source archives use an explicit allowlist, not a ZIP of the working directory.
-    $rootFiles = @('Program.cs','DesktopForm.cs','DesktopAcceptance.cs','SteamWriteGuard.cs','DesktopQol.cs','DesktopEnhancements.cs','SettingsFile.cs','LibraryInventory.cs','DiagnosticReport.cs','GuidedTour.cs','LibrarySnapshot.cs','SteamArtwork.cs','OperationJournal.cs','GlobalAchievements.cs','RarityStyle.cs','CredentialVault.cs','CredentialStore.cs','OwnedLibrary.cs','DesktopPreferences.cs','DesktopTheme.cs','ThemeControls.cs','AchievementForm.cs','DesktopWorker.cs','LibraryState.cs','BatchRunner.cs','AchievementCatalog.cs','SteamLibraryScanner.cs','SteamRuntime.cs','SteamStatsManager.cs','UserSettings.cs',
+    $rootFiles = @('Program.cs','DesktopForm.cs','DesktopAcceptance.cs','SteamWriteGuard.cs','DesktopQol.cs','DesktopEnhancements.cs','SettingsFile.cs','LibraryInventory.cs','DiagnosticReport.cs','GuidedTour.cs','LibrarySnapshot.cs','SteamArtwork.cs','OperationJournal.cs','GlobalAchievements.cs','RarityStyle.cs','CredentialVault.cs','CredentialStore.cs','OwnedLibrary.cs','DesktopPreferences.cs','DesktopTheme.cs','ThemeControls.cs','AchievementForm.cs','AchievementIconCache.cs','DesktopWorker.cs','LibraryState.cs','BatchRunner.cs','AchievementCatalog.cs','SteamLibraryScanner.cs','SteamRuntime.cs','NativeDllPolicy.cs','PublicSteamHttp.cs','SteamStatsManager.cs','UserSettings.cs',
         'SteamAchievementUnlocker.csproj','packages.lock.json','global.json','NuGet.Config','.gitignore','README.md','LICENSE','THIRD-PARTY-NOTICES.md','GITHUB-PUBLISHING.md')
     foreach ($file in $rootFiles) { Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination $sourceDirectory }
     foreach ($file in @('lib\steam_api64.dll','lib\Steamworks.NET.LICENSE.txt','lib\DOTNET-LICENSE.txt','lib\DOTNET-THIRD-PARTY-NOTICES.txt','scripts\Publish-Release.ps1','scripts\Validate-Portable.ps1','tests\Program.cs','tests\SteamAchievementUnlocker.Tests.csproj','.github\workflows\release.yml')) {
@@ -84,15 +88,15 @@ Personal settings stay in your Windows user profile.
         Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination $target
     }
     $forbidden = Get-ChildItem -LiteralPath $publishDirectory,$sourceDirectory -Recurse -Force -File | Where-Object {
-        $_.Name -like 'library-snapshot-*' -or $_.Name -like 'operations-*' -or $_.Name -like 'desktop-preferences.json*' -or $_.Name -like 'library-inventory-*' -or $_.Name -like 'SteamAchievementUnlocker-diagnostic*' -or $_.Name -like 'web_api_key*' -or $_.Name -eq 'steam_appid.txt' -or $_.Name -like 'batch-*.json' -or $_.Name -like 'library-state-*' -or $_.Name -like 'achievement-cache*' -or $_.Name -like '.env*' -or $_.Extension -in '.pfx','.pem'
+        $_.FullName -match '[\\/]achievement-icons[\\/]' -or $_.Name -like 'library-snapshot-*' -or $_.Name -like 'operations-*' -or $_.Name -like 'desktop-preferences.json*' -or $_.Name -like 'library-inventory-*' -or $_.Name -like 'SteamAchievementUnlocker-diagnostic*' -or $_.Name -like 'web_api_key*' -or $_.Name -eq 'steam_appid.txt' -or $_.Name -like 'batch-*.json' -or $_.Name -like 'library-state-*' -or $_.Name -like 'achievement-cache*' -or $_.Name -like '.env*' -or $_.Extension -in '.pfx','.pem'
     }
     if ($forbidden) { throw 'Personal configuration detected in release staging.' }
     $runtimeConfig = Get-Content -LiteralPath (Join-Path $buildDirectory 'SteamAchievementUnlocker.runtimeconfig.json') -Raw | ConvertFrom-Json
     if ($runtimeConfig.runtimeOptions.framework -or $runtimeConfig.runtimeOptions.frameworks -or !(Test-Path -LiteralPath (Join-Path $publishDirectory 'lib\steam_api64.dll'))) {
         throw 'The output is not self-contained.'
     }
-    $windowsZip = Join-Path $destination 'SteamAchievementUnlocker-win-x64.zip'
-    $sourceZip = Join-Path $destination 'SteamAchievementUnlocker-source.zip'
+    $windowsZip = Join-Path $destination "SteamAchievementUnlocker-win-x64-v$appVersion.zip"
+    $sourceZip = Join-Path $destination "SteamAchievementUnlocker-source-v$appVersion.zip"
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     foreach ($archive in @(@($publishDirectory,$windowsZip),@($sourceDirectory,$sourceZip))) {
         if (Test-Path -LiteralPath $archive[1]) { Remove-Item -LiteralPath $archive[1] }

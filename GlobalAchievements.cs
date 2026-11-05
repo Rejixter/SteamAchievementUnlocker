@@ -5,6 +5,16 @@ namespace SteamAchievementUnlocker;
 
 public sealed class GlobalAchievements
 {
+    public static Dictionary<string, double> ReadCached(uint appId, string directory)
+    {
+        try
+        {
+            string path = Path.Combine(directory, appId + ".json");
+            if (File.Exists(path) && new FileInfo(path).Length <= 2 * 1024 * 1024 && DateTime.UtcNow - File.GetLastWriteTimeUtc(path) is var age && age >= TimeSpan.Zero && age < TimeSpan.FromHours(24)) return Parse(File.ReadAllText(path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return new();
+    }
     public static Dictionary<string, double> Parse(string json)
     {
         var result = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -28,7 +38,7 @@ public sealed class GlobalAchievements
         string path = Path.Combine(directory, appId + ".json");
         try
         {
-            if (File.Exists(path) && DateTime.UtcNow - File.GetLastWriteTimeUtc(path) is var age && age >= TimeSpan.Zero && age < TimeSpan.FromHours(24))
+            if (File.Exists(path) && new FileInfo(path).Length <= 2 * 1024 * 1024 && DateTime.UtcNow - File.GetLastWriteTimeUtc(path) is var age && age >= TimeSpan.Zero && age < TimeSpan.FromHours(24))
             { var cached = Parse(await File.ReadAllTextAsync(path, token)); if (cached.Count > 0) return cached; }
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(10));
             using var response = await http.GetAsync($"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid={appId}", HttpCompletionOption.ResponseHeadersRead, timeout.Token);

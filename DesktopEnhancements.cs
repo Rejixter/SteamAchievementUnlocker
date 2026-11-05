@@ -134,7 +134,7 @@ public sealed partial class DesktopForm
     }
     private Task PreviewDiagnostics()
     {
-        string report = DiagnosticReport.Create("2.0.0", _theme.Text, _main.Count + _family.Count, _journal.History.Count, _busy, _usingSnapshot, _preferences.ReadOnly || _state.ReadOnly || _journal.ReadOnly);
+        string report = DiagnosticReport.Create("2.1.0", _theme.Text, _main.Count + _family.Count, _journal.History.Count, _busy, _usingSnapshot, _preferences.ReadOnly || _state.ReadOnly || _journal.ReadOnly);
         using var dialog = new Form { Text = "Preview diagnostic report · nothing is uploaded", Size = new(680, 500), StartPosition = FormStartPosition.CenterParent, Font = Font };
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2 }; layout.RowStyles.Add(new(SizeType.Percent, 100)); layout.RowStyles.Add(new(SizeType.AutoSize));
         layout.Controls.Add(new ThemeTextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = report.Replace("\n", "\r\n"), AccessibleName = "Exact diagnostic report preview" });

@@ -20,7 +20,7 @@ public sealed partial class DesktopForm : Form
     private OperationJournal _journal = new();
     private string? _journalPath;
     private readonly ContextMenuStrip _menu = new();
-    private readonly HttpClient _http = new();
+    private readonly HttpClient _http = PublicSteamHttp.CreateClient();
     private readonly AchievementCatalog _catalog;
     private LibraryState _state = new();
     private List<SteamGame> _main = new(), _family = new(), _visible = new();
@@ -75,9 +75,9 @@ public sealed partial class DesktopForm : Form
                 Application.SetCompatibleTextRenderingDefault(false);
                 using var form = new DesktopForm(demo);
                 if (selfTest)
-                    form.Shown += (_, _) => form.BeginInvoke(new Action(() =>
+                    form.Shown += (_, _) => form.BeginInvoke(new Action(async () =>
                     {
-                        try { form.SmokeChecks(); if (acceptance) form.AcceptanceChecks(); Console.WriteLine("PASS: desktop search, selection, tabs, progress filters and exclusions."); }
+                        try { form.SmokeChecks(); await AchievementForm.VisualSmokeChecks(form); if (acceptance) form.AcceptanceChecks(); Console.WriteLine("PASS: desktop search, selection, tabs, progress filters and exclusions."); }
                         catch (Exception ex) { failure = ex; }
                         finally { form.Close(); }
                     }));
@@ -100,9 +100,9 @@ public sealed partial class DesktopForm : Form
         _demo = demo;
         _preferences = demo ? new() : DesktopPreferences.Load(_preferencesPath);
         _artwork = new(_http, Path.Combine(UserSettings.DirectoryPath, "artwork-cache"));
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/2.0.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAchievementUnlocker/2.1.0");
         _catalog = new(_http, demo ? Path.Combine(Path.GetTempPath(), "sau-demo-unused-" + Guid.NewGuid() + ".json") : Path.Combine(UserSettings.DirectoryPath, "achievement-cache.json"));
-        Text = "Steam Achievement Unlocker v2.0.0" + (demo ? " — DEMO (no Steam connection)" : "");
+        Text = "Steam Achievement Unlocker v2.1.0" + (demo ? " — DEMO (no Steam connection)" : "");
         Font = new Font("Segoe UI", 10);
         BackColor = Color.FromArgb(246, 247, 251);
         StartPosition = FormStartPosition.CenterScreen;
@@ -138,7 +138,7 @@ public sealed partial class DesktopForm : Form
         var title = new Label { Text = "Steam Achievement Unlocker", Font = new Font("Segoe UI", 21, FontStyle.Bold), AutoSize = true, ForeColor = Color.FromArgb(31, 36, 55) };
         var heading = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
         heading.Controls.Add(title);
-        heading.Controls.Add(new Label { Text = demo ? "DEMO · Sample games only · Steam is never initialized" : "Your library. Your selection. Confirmed results.   /   v2.0.0", AutoSize = true, ForeColor = Color.DimGray });
+        heading.Controls.Add(new Label { Text = demo ? "DEMO · Sample games only · Steam is never initialized" : "Your library. Your selection. Confirmed results.   /   v2.1.0", AutoSize = true, ForeColor = Color.DimGray });
         header.Controls.Add(heading, 0, 0);
         var topActions = Flow();
         topActions.Controls.Add(ActionButton("Refresh library", async () => await RefreshLibrary()));
@@ -594,7 +594,10 @@ public sealed partial class DesktopForm : Form
         if (GameAt(_grid.CurrentCell?.RowIndex ?? -1) is not { } game) { Log("Choose a game row first."); return; }
         if (_tabs.SelectedIndex == 2) { Log("Restore the game before opening achievements."); return; }
         if (!CanUseSteam()) return;
+        bool coversWerePaused = _artPaused; _artPaused = true;
         Busy(true);
+        using var visualLifetime = CancellationTokenSource.CreateLinkedTokenSource(_artLifetime.Token);
+        var ratesTask = GlobalAchievements.LoadAsync(_http, game.AppId, Path.Combine(UserSettings.DirectoryPath, "global-achievements"), visualLifetime.Token);
         try
         {
             Log("Reading achievements for " + game.Name + "…");
@@ -602,6 +605,8 @@ public sealed partial class DesktopForm : Form
             _journal.Add(new(DateTimeOffset.UtcNow, game.AppId, game.Name, "Open achievements", result.Success ? "Read" : "Failed", result.Status)); SaveJournal();
             if (_stopRequested || _closeAfter) return;
             if (!result.Success || result.Achievements is null) { Log(result.Status); return; }
+            Log("Achievements ready. Icons and rarity load in the background."); _stop.Enabled = false;
+            ulong visualAccount = _account;
             using var dialog = new AchievementForm(game, result.Achievements, async names =>
             {
                 var started = new OperationEntry(DateTimeOffset.UtcNow, game.AppId, game.Name, "Unlock selected", "Uncertain", "Request started; final confirmation pending. Re-read progress after an interruption.");
@@ -611,11 +616,11 @@ public sealed partial class DesktopForm : Form
                 var entryJournal = new OperationJournal(); entryJournal.Complete(game, "Unlock selected", saved.Success, saved.Status);
                 _journal.History.Remove(started); _journal.Add(entryJournal.History.Single()); SaveJournal();
                 ApplyResult(game.AppId, saved); SaveState(); Log(saved.Status); return saved;
-            }, _http, _animations.Checked);
+            }, _http, _animations.Checked, (missing, ready, token) => DesktopWorker.LoadIconsAsync(game.AppId, visualAccount, missing, ready, token), ratesTask);
             DesktopTheme.Apply(dialog, _theme.Text);
             dialog.ShowDialog(this);
         }
-        finally { Busy(false); }
+        finally { visualLifetime.Cancel(); _artPaused = coversWerePaused; Busy(false); }
     }
     private Task AddGame()
     {

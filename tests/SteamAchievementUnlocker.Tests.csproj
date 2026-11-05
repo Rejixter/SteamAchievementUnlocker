@@ -7,6 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\AchievementIconCache.cs" Link="AchievementIconCache.cs" />
+    <Compile Include="..\NativeDllPolicy.cs" Link="NativeDllPolicy.cs" />
+    <Compile Include="..\PublicSteamHttp.cs" Link="PublicSteamHttp.cs" />
     <Compile Include="..\SteamWriteGuard.cs" Link="SteamWriteGuard.cs" />
     <Compile Include="..\SettingsFile.cs" Link="SettingsFile.cs" />
     <Compile Include="..\LibraryInventory.cs" Link="LibraryInventory.cs" />

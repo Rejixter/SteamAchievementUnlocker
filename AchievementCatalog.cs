@@ -28,9 +28,9 @@ public sealed class AchievementCatalog
         _spacing = spacing ?? TimeSpan.FromMilliseconds(650);
         try
         {
-            if (File.Exists(cachePath))
+            if (File.Exists(cachePath) && new FileInfo(cachePath).Length <= 8 * 1024 * 1024)
                 foreach (var pair in JsonSerializer.Deserialize<Dictionary<uint, AchievementCacheEntry>>(File.ReadAllText(cachePath)) ?? new())
-                    _cache[pair.Key] = pair.Value;
+                    if (pair.Key > 0 && pair.Value is not null && Enum.IsDefined(pair.Value.Support)) _cache[pair.Key] = pair.Value;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
     }
@@ -83,12 +83,12 @@ public sealed class AchievementCatalog
                 {
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                     timeout.CancelAfter(TimeSpan.FromSeconds(8));
-                    using var response = await _http.GetAsync($"https://store.steampowered.com/api/appdetails?appids={id}&filters=basic,categories,achievements", timeout.Token);
+                    using var response = await _http.GetAsync($"https://store.steampowered.com/api/appdetails?appids={id}&filters=basic,categories,achievements", HttpCompletionOption.ResponseHeadersRead, timeout.Token);
                     if (response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.Forbidden)
                         Interlocked.Exchange(ref stopped, 1);
                     if (response.IsSuccessStatusCode)
                         {
-                        string json = await response.Content.ReadAsStringAsync(timeout.Token);
+                        string json = System.Text.Encoding.UTF8.GetString(await PublicSteamHttp.ReadBoundedAsync(response, 512 * 1024, timeout.Token));
                         support = ParseStoreResponse(json, id);
                         using var doc = JsonDocument.Parse(json);
                         if (doc.RootElement.ValueKind == JsonValueKind.Object &&
@@ -99,7 +99,7 @@ public sealed class AchievementCatalog
                     }
                     else failedRequest = true;
                 }
-                catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException) { failedRequest = true; }
+                catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException or InvalidOperationException) { failedRequest = true; }
                 if (token.IsCancellationRequested) return;
                 _cache[id] = new(support, DateTimeOffset.UtcNow, gameName);
                 // Bound an offline or unavailable-service scan instead of waiting on hundreds of timeouts.

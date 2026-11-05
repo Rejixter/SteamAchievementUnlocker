@@ -1,7 +1,27 @@
-# Steam Achievement Unlocker v2.0.0
+# Steam Achievement Unlocker v2.1.0
 
 A portable Windows desktop application for browsing Steam games, reading achievement
 progress and unlocking selected achievements. The interface and documentation are in English.
+
+## Version 2.1.0 achievement visual loading
+
+- Progress reads no longer fetch or encode achievement icons. The achievement window opens after fresh account-checked stats arrive; icon loading is a separate read-only worker.
+- Steam achievement icon callbacks are processed while downloads finish. Images stream into the open window instead of staying blank when Steam initially returns handle zero. Steam images up to 512 pixels are normalized to bounded 64-pixel PNGs.
+- Icons persist in `achievement-icons`, keyed by game, API name hash and locked/unlocked state. Reopening reuses cached icons; only missing assets request a worker. Visible icons are decoded on demand, with bounded off-screen image retention. Missing images have a placeholder and loading status.
+- Public rarity requests overlap the initial stats read. Fresh cached percentages are available at first paint; new data updates percentages and rare borders in place unless sorting/filtering needs a rebuild.
+- Neon repainting touches visible rare rows only and pauses when the window loses focus or is minimized. Animations off retains static borders. Achievement search is debounced.
+- Closing the window cancels background icon loading. Unlock actions cancel and await that read-only worker before submitting changes; account checks and confirmation dialogs remain in place.
+
+The previous security hardening is included. Assets still require Steam/network availability on the first load. Unknown rarity never produces a rare frame, and Steam may omit images for some achievements. No automatic unlocks or GitHub uploads were added.
+
+## Version 2.0.1 security hardening
+
+- Verify the expected Steam DLL SHA-256 before loading native code, keeping the verified file handle open during loading. A modified or incompatible DLL is rejected.
+- Disable automatic redirects and cookies on public Steam metadata/artwork clients; authenticated requests remain isolated and continue sending keys only in the HTTPS header.
+- Bound Store metadata downloads before buffering, ignore null support-cache entries and limit local public-rate cache reads.
+- Bundle the .NET 8.0.33 runtime. Self-contained runtime patches require rebuilding and redistributing the application; updating system .NET alone does not update an existing ZIP.
+
+These checks do not defend against malware that already runs as the same Windows user or replaces the EXE itself. DPAPI encryption, batch confirmations, account checks and achievement behavior are unchanged.
 
 ## Version 2.0.0
 
@@ -94,7 +114,7 @@ History and pending batches live in your Windows user settings as `operations-<a
 
 ## Download and run
 
-1. Open [Releases](https://github.com/Rejixter/SteamAchievementUnlocker/releases) and download **SteamAchievementUnlocker-win-x64.zip**.
+1. Open [Releases](https://github.com/Rejixter/SteamAchievementUnlocker/releases) and download **SteamAchievementUnlocker-win-x64-v2.1.0.zip**.
 2. Extract the **entire ZIP** to a writable folder. Keep `lib`, `docs`, and `licenses` beside the EXE.
 3. Open Steam, sign in and run **SteamAchievementUnlocker.exe**. A desktop window opens; no console commands are needed.
 
